@@ -20,16 +20,26 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
   const filteredTabs = tabs.filter(tab => tab.roles.includes(user.role));
 
   return (
-    <div className="w-[15%] h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-50 border-r border-white/5 shadow-xl">
+    <div className="w-[15%] h-screen bg-[#1E2A56] text-white flex flex-col fixed left-0 top-0 z-50 border-r border-white/5 shadow-xl">
       <div className="p-6 pb-2">
-        {/* Compact Branding header */}
-        <div className="flex flex-col mb-6 group cursor-default">
-           <h1 className="text-[15px] font-black text-white uppercase tracking-[0.1em] leading-tight">
-             QC<br/>EVALUATOR
-           </h1>
-           <div className="mt-4 flex flex-col gap-0.5">
-              <span className="text-[12px] font-bold text-slate-300 truncate">{user.name}</span>
-              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+        {/* Exact Brand Identity Implementation */}
+        <div className="flex flex-col mb-8 group cursor-default">
+           <div className="flex items-end relative pr-7">
+              <span className="text-[28px] font-[900] italic text-white tracking-tighter leading-none uppercase select-none font-sans">TRANSFORM</span>
+              <div className="absolute top-[-4px] right-0 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                 {/* Reconstructed Shard Arrow based on "this arrow is important" close-up */}
+                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 22 L22 2 V13 Z" fill="white" />
+                 </svg>
+              </div>
+           </div>
+           <span className="text-[14px] font-bold text-white/90 mt-1 tracking-tight pl-0.5">
+             Solutions Simplified
+           </span>
+
+           <div className="mt-10 flex flex-col gap-0.5 border-l-2 border-white/20 pl-3">
+              <span className="text-[12px] font-bold text-slate-100 truncate">{user.name}</span>
+              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">
                 {user.role}
               </span>
            </div>
@@ -41,16 +51,19 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg transition-all duration-300 group relative border ${
+            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-300 group relative border ${
               activeTab === tab.id
-                ? 'bg-[#6366f1] text-white border-[#6366f1] shadow-[0_5px_15px_-5px_rgba(99,102,241,0.5)]'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border-transparent'
+                ? 'bg-white/10 text-white border-white/10 shadow-lg'
+                : 'text-slate-300 hover:text-white hover:bg-white/5 border-transparent'
             }`}
           >
-            <i className={`bi ${tab.icon} text-[16px] ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-white'}`}></i>
+            <i className={`bi ${tab.icon} text-[16px] ${activeTab === tab.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}></i>
             <span className={`text-[13px] ${activeTab === tab.id ? 'font-black' : 'font-medium'} truncate`}>
               {tab.label}
             </span>
+            {activeTab === tab.id && (
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-white/40 rounded-l-full"></div>
+            )}
           </button>
         ))}
       </nav>

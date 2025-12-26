@@ -84,33 +84,37 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] flex flex-col font-sans">
-      {/* Top Utility Bar - Matches density of previous UI fixes */}
+      {/* Top Utility Bar */}
       <div className="w-full h-10 bg-white border-b border-gray-200 flex items-center justify-center relative shadow-sm">
-        <span className="text-[14px] font-bold text-slate-500 uppercase tracking-widest">QC Evaluation Tool Pro</span>
+        <span className="text-[14px] font-bold text-slate-500 uppercase tracking-widest">Quality Evaluator Portal</span>
         <div className="absolute right-4 flex items-center gap-3 text-[14px] text-slate-400">
            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
              <i className="bi bi-display text-[14px]"></i>
-             <span className="text-[11px] font-black uppercase tracking-tighter">Device</span>
+             <span className="text-[11px] font-black uppercase tracking-tighter">Secure Terminal</span>
            </div>
-           <i className="bi bi-arrow-clockwise cursor-pointer hover:text-black transition-colors"></i>
-           <i className="bi bi-arrows-angle-expand cursor-pointer hover:text-black transition-colors"></i>
         </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6">
-        {/* Login Card - Scaled down to be more compact (Approx 420px wide) */}
-        <div className="w-full max-w-[420px] bg-white rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.15)] p-10 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500 border border-white">
+        <div className="w-full max-w-[440px] bg-white rounded-[3rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.1)] p-14 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500 border border-white">
           
-          <div className="w-16 h-16 bg-[#4f46e5] rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6 transition-transform hover:scale-110 duration-500">
-            <i className="bi bi-shield-lock-fill text-white text-[32px]"></i>
+          {/* Exact Brand Logo Reconstruction for Login Screen */}
+          <div className="flex flex-col items-center mb-12 group text-[#1E2A56]">
+             <div className="flex items-end relative pr-12">
+                <span className="text-[58px] font-[900] italic tracking-tighter leading-none uppercase select-none">TRANSFORM</span>
+                <div className="absolute top-[-8px] right-0 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1">
+                   <svg width="56" height="56" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 22 L22 2 V13 Z" fill="#1E2A56" />
+                   </svg>
+                </div>
+             </div>
+             <span className="text-[22px] font-bold mt-2 tracking-tight text-[#1E2A56]/90">
+               Solutions Simplified
+             </span>
           </div>
 
-          <h1 className="text-[24px] font-black text-[#1a2138] mb-1 tracking-tight uppercase">System Login</h1>
-          <p className="text-[13px] text-slate-400 font-bold mb-8 text-center uppercase tracking-widest">Secure Evaluator Access</p>
-          
           <form onSubmit={handleLogin} className="w-full space-y-6 relative">
             
-            {/* Email Field */}
             <div className="space-y-2 relative" ref={dropdownRef}>
               <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Email</label>
               <div className="relative">
@@ -121,12 +125,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   value={emailQuery}
                   onChange={handleEmailChange}
                   onFocus={() => emailQuery && setShowDropdown(true)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/30 focus:bg-white outline-none transition-all text-[15px] font-medium text-black"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/30 focus:bg-white outline-none transition-all text-[15px] font-medium text-black shadow-inner"
                   required
                 />
               </div>
 
-              {/* Autocomplete Dropdown */}
               {showDropdown && filteredUsers.length > 0 && (
                 <div className="absolute z-50 top-full left-0 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl max-h-[200px] overflow-y-auto custom-scrollbar overflow-hidden">
                   {filteredUsers.map(u => (
@@ -144,7 +147,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               )}
             </div>
 
-            {/* Password Field */}
             <div className="space-y-2">
               <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
               <div className="relative">
@@ -157,7 +159,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     setPassword(e.target.value);
                     setError('');
                   }}
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/30 focus:bg-white outline-none transition-all text-[15px] font-medium text-black"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/30 focus:bg-white outline-none transition-all text-[15px] font-medium text-black shadow-inner"
                   required
                 />
               </div>
@@ -173,7 +175,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <button 
               type="submit"
               disabled={loading}
-              className={`w-full py-4 text-white rounded-xl font-black uppercase tracking-[0.2em] text-[14px] shadow-lg transition-all active:scale-[0.97] ${
+              className={`w-full py-4 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[14px] shadow-lg transition-all active:scale-[0.97] ${
                 !loading
                 ? 'bg-[#1E2A56] hover:bg-black shadow-indigo-900/10' 
                 : 'bg-slate-300 cursor-not-allowed'
@@ -184,8 +186,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <div className="pt-6 border-t border-slate-50 text-center">
               <p className="text-[12px] text-slate-400 font-medium">
-                Locked out of your account? <br/>
-                <span className="text-indigo-600 font-black uppercase tracking-tighter cursor-pointer hover:underline">Request Reset from IT</span>
+                System Access Restricted to Evaluators. <br/>
+                <span className="text-[#1E2A56] font-black uppercase tracking-tighter cursor-pointer hover:underline">Support Desk</span>
               </p>
             </div>
           </form>

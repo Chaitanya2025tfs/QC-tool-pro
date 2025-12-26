@@ -216,14 +216,14 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
 
       {/* Delete Confirmation Modal */}
       {recordToDelete && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1a2138]/60 backdrop-blur-sm p-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1E2A56]/60 backdrop-blur-sm p-6 animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8 space-y-6 text-center">
               <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
                 <i className="bi bi-trash3-fill text-[28px]"></i>
               </div>
               <div className="space-y-2">
-                <h3 className="text-[18px] font-black text-[#1a2138] uppercase tracking-tight">Delete Audit Record?</h3>
+                <h3 className="text-[18px] font-black text-[#1E2A56] uppercase tracking-tight">Delete Audit Record?</h3>
                 <p className="text-[14px] font-medium text-slate-500 leading-relaxed">
                   Permanently remove audit for <span className="font-bold text-black">{recordToDelete.agentName}</span>?
                 </p>
@@ -252,10 +252,10 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
 
       {/* Detail Viewer Modal */}
       {viewingRecord && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1a2138]/60 backdrop-blur-md p-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1E2A56]/60 backdrop-blur-md p-6 animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.25)] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh] border border-white/20">
             
-            <div className="bg-[#1a2138] px-10 py-8 text-white flex items-center justify-between">
+            <div className="bg-[#1E2A56] px-10 py-8 text-white flex items-center justify-between">
               <div className="flex items-center gap-5">
                 <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/5">
                    <i className="bi bi-file-earmark-check text-[24px] text-white"></i>
@@ -370,7 +370,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
             <div className="p-8 bg-white border-t border-slate-50 flex justify-end">
                <button 
                 onClick={() => setViewingRecord(null)}
-                className="px-8 py-3.5 bg-[#1a2138] text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95"
+                className="px-8 py-3.5 bg-[#1E2A56] text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95"
                >
                  Close Report
                </button>

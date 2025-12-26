@@ -273,7 +273,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
 
       <form onSubmit={handleSubmit} className="bg-white rounded-[4px] shadow-sm border border-slate-300 overflow-hidden" noValidate>
         {/* Form Header */}
-        <div className="bg-[#1a2138] text-white px-8 py-5 flex justify-between items-center">
+        <div className="bg-[#1E2A56] text-white px-8 py-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-[#10b981]"></div>
             <h2 className="text-[16px] font-black uppercase tracking-widest">Fill Daily Audit</h2>
@@ -366,7 +366,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
           {/* Audit Type Block */}
           <div 
             ref={auditTypeRef}
-            className={`bg-[#1a2138] rounded-[4px] p-8 flex flex-wrap items-center justify-start gap-16 text-white shadow-xl transition-all ${(!formData.regularChecked && !formData.isRework && !formData.noWork && formError) ? 'ring-4 ring-rose-500' : ''}`}
+            className={`bg-[#1E2A56] rounded-[4px] p-8 flex flex-wrap items-center justify-start gap-16 text-white shadow-xl transition-all ${(!formData.regularChecked && !formData.isRework && !formData.noWork && formError) ? 'ring-4 ring-rose-500' : ''}`}
           >
             <label className="flex items-center gap-3 cursor-pointer group">
               <input 
@@ -500,7 +500,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
                 </div>
               </div>
 
-              <div className="bg-[#1a2138] rounded-xl p-6 flex items-center justify-between mt-8">
+              <div className="bg-[#1E2A56] rounded-xl p-6 flex items-center justify-between mt-8">
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col">
                     <span className="text-[14px] font-black text-white uppercase tracking-widest">Aggregate Task Score</span>
@@ -540,7 +540,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
       {showConfirmModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-6 animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-md rounded-[4px] shadow-2xl border border-slate-300 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-[#1a2138] p-6 text-white">
+            <div className="bg-[#1E2A56] p-6 text-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center justify-center w-7 h-7 rounded-full border-2 border-amber-500">

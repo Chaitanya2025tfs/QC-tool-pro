@@ -46,7 +46,7 @@ const SuccessReport: React.FC<SuccessReportProps> = ({ record, onClose }) => {
                 <i className="bi bi-envelope-check-fill text-[24px]"></i>
              </div>
              <div className="flex flex-col">
-                <h2 className="text-[18px] font-black text-[#1a2138] uppercase tracking-tight leading-none">Report Dispatched</h2>
+                <h2 className="text-[18px] font-black text-[#1E2A56] uppercase tracking-tight leading-none">Report Dispatched</h2>
                 <span className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">Successfully sent to Gmail</span>
              </div>
           </div>
@@ -75,7 +75,7 @@ const SuccessReport: React.FC<SuccessReportProps> = ({ record, onClose }) => {
 
             {/* Email Content Summary List */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-[14px] font-black text-[#1a2138] uppercase tracking-widest px-1">
+              <div className="flex items-center gap-2 text-[14px] font-black text-[#1E2A56] uppercase tracking-widest px-1">
                 <i className="bi bi-info-circle text-indigo-500"></i>
                 Email Content Summary:
               </div>
@@ -115,7 +115,7 @@ const SuccessReport: React.FC<SuccessReportProps> = ({ record, onClose }) => {
           <div className="flex flex-col items-center gap-4">
             <button 
               onClick={onClose}
-              className="w-full max-w-sm py-4 bg-[#0f172a] text-white rounded-xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95"
+              className="w-full max-w-sm py-4 bg-[#1E2A56] text-white rounded-xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95"
             >
               Done & Return
             </button>
