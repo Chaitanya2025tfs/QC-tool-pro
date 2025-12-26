@@ -57,6 +57,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
 
+  // Manual display states for MM/DD/YYYY inputs
+  const toMMDDYYYY = (iso: string) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return `${m}/${d}/${y}`;
+  };
+
+  const [startInput, setStartInput] = useState(toMMDDYYYY(today));
+  const [endInput, setEndInput] = useState(toMMDDYYYY(today));
+
   const filtered = useMemo(() => {
     return records.filter(r => {
       const matchAgent = selectedAgent === 'All Active Agents' || r.agentName === selectedAgent;
@@ -81,7 +91,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
     };
   }, [filtered]);
 
-  // Table 1: Performance & Productivity Summary (Grouped)
   const groupedSummary = useMemo(() => {
     const map = new Map();
     filtered.forEach(r => {
@@ -108,15 +117,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
     })).sort((a, b) => b.date.localeCompare(a.date));
   }, [filtered]);
 
-  // Distribution Data
   const pieData = useMemo(() => {
     return PROJECTS.map(p => {
-      const activeOnProject = Array.from(new Set(filtered.filter(r => r.projectName === p).map(r => r.agentName)));
-      return { name: p, value: activeOnProject.length };
-    }).filter(d => d.value > 0);
+      const submissionsOnProject = filtered.filter(r => r.projectName === p).length;
+      return { name: p, value: submissionsOnProject };
+    }).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
   }, [filtered]);
 
-  // Trends Data
   const trendData = useMemo(() => {
     if (filtered.length === 0) return [];
     const dates = Array.from(new Set(filtered.map(r => r.date))).sort().slice(-7);
@@ -146,6 +153,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
     });
   }, [filtered]);
 
+  const handleManualDateInput = (val: string, setter: (v: string) => void, syncState: (v: string) => void) => {
+    // Basic auto-slashing logic for MM/DD/YYYY
+    let cleaned = val.replace(/\D/g, '').slice(0, 8);
+    if (cleaned.length >= 5) {
+      cleaned = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4)}`;
+    } else if (cleaned.length >= 3) {
+      cleaned = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
+    }
+    setter(cleaned);
+
+    // If fully entered (10 chars), try to sync to ISO state
+    if (cleaned.length === 10) {
+      const [m, d, y] = cleaned.split('/');
+      const iso = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      if (!isNaN(Date.parse(iso))) {
+        syncState(iso);
+      }
+    }
+  };
+
+  const handlePickerChange = (val: string, inputSetter: (v: string) => void, stateSetter: (v: string) => void) => {
+    stateSetter(val);
+    inputSetter(toMMDDYYYY(val));
+  };
+
   const EmptyState = ({ message = "No Data Available" }) => (
     <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-2">
       <i className="bi bi-bar-chart text-[32px] opacity-20"></i>
@@ -158,47 +190,70 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
       {/* Slicer Bar */}
       <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-[0_5px_15px_-5px_rgba(0,0,0,0.02)] flex flex-col lg:flex-row items-center justify-between gap-6">
         <div className="flex flex-col lg:flex-row items-center gap-6 w-full lg:w-auto">
-          <div className="space-y-1 w-full lg:w-56">
-            <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">QC PERFORMANCE SLICER</span>
-            <div className="relative">
-               <i className="bi bi-person absolute left-3 top-1/2 -translate-y-1/2 text-[#6366f1] text-[14px]"></i>
-               <select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)} className="w-full pl-9 pr-7 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[12px] font-bold text-[#1a2138] outline-none appearance-none cursor-pointer">
-                <option>All Active Agents</option>
-                {AGENTS.map(a => <option key={a}>{a}</option>)}
-              </select>
-              <i className="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none"></i>
+          {user.role !== 'AGENT' && (
+            <div className="space-y-1 w-full lg:w-56">
+              <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">QC PERFORMANCE SLICER</span>
+              <div className="relative">
+                 <i className="bi bi-person absolute left-3 top-1/2 -translate-y-1/2 text-[#6366f1] text-[14px]"></i>
+                 <select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)} className="w-full pl-9 pr-7 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[12px] font-bold text-[#1a2138] outline-none appearance-none cursor-pointer">
+                  <option>All Active Agents</option>
+                  {AGENTS.map(a => <option key={a}>{a}</option>)}
+                </select>
+                <i className="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none"></i>
+              </div>
             </div>
-          </div>
+          )}
           
-          {/* Active Date Range Picker Container */}
-          <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg shadow-inner">
-             <div className="flex items-center gap-2 group cursor-pointer relative">
+          {/* Evaluation Range Container - MM/DD/YYYY with Manual and Picker Support */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">EVALUATION RANGE</span>
+            <div className="flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-100 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)]">
+              
+              {/* Start Date Area */}
+              <div className="flex items-center gap-2 group relative">
                 <input 
-                  type="date" 
-                  value={startDate} 
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  type="text"
+                  value={startInput}
+                  onChange={(e) => handleManualDateInput(e.target.value, setStartInput, setStartDate)}
+                  placeholder="MM/DD/YYYY"
+                  className="w-[90px] text-center text-[13px] font-black text-[#1a2138] bg-transparent outline-none tracking-tight placeholder:text-slate-200"
                 />
-                <span className="text-[12px] font-black text-slate-700 min-w-[70px] text-center">
-                  {new Date(startDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
-                </span>
-                <i className="bi bi-calendar3 text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
-             </div>
-             
-             <span className="text-slate-300 font-normal select-none">→</span>
-             
-             <div className="flex items-center gap-2 group cursor-pointer relative">
+                <div className="relative w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 border border-slate-100 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all cursor-pointer">
+                  <i className="bi bi-calendar4 text-slate-400 group-hover:text-indigo-500 text-[12px]"></i>
+                  <input 
+                    type="date" 
+                    value={startDate}
+                    onChange={(e) => handlePickerChange(e.target.value, setStartInput, setStartDate)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-center px-1">
+                <span className="text-slate-200 font-light select-none text-[16px]">→</span>
+              </div>
+              
+              {/* End Date Area */}
+              <div className="flex items-center gap-2 group relative">
                 <input 
-                  type="date" 
-                  value={endDate} 
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  type="text"
+                  value={endInput}
+                  onChange={(e) => handleManualDateInput(e.target.value, setEndInput, setEndDate)}
+                  placeholder="MM/DD/YYYY"
+                  className="w-[90px] text-center text-[13px] font-black text-[#1a2138] bg-transparent outline-none tracking-tight placeholder:text-slate-200"
                 />
-                <span className="text-[12px] font-black text-slate-700 min-w-[70px] text-center">
-                   {new Date(endDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
-                </span>
-                <i className="bi bi-calendar3 text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
-             </div>
+                <div className="relative w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 border border-slate-100 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all cursor-pointer">
+                  <i className="bi bi-calendar4 text-slate-400 group-hover:text-indigo-500 text-[12px]"></i>
+                  <input 
+                    type="date" 
+                    value={endDate}
+                    onChange={(e) => handlePickerChange(e.target.value, setEndInput, setEndDate)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
         
@@ -227,12 +282,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
         <ChartBox title="TIME SLOT TRENDS (REGULAR)" icon="bi-graph-up-arrow">
           {trendData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData}>
+              <LineChart data={trendData} margin={{ bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} fontSize={9} dy={6} stroke="#94a3b8" />
                 <YAxis domain={[0, 100]} axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <Tooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', fontSize: '11px' }} />
-                <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ fontSize: '9px', paddingBottom: '10px' }} />
+                <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', paddingTop: '20px' }} />
                 <Line type="monotone" name="12 PM" dataKey="12 PM" stroke={COLORS.slots['12 PM']} strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: COLORS.slots['12 PM'], strokeWidth: 2 }} connectNulls />
                 <Line type="monotone" name="4 PM" dataKey="4 PM" stroke={COLORS.slots['4 PM']} strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: COLORS.slots['4 PM'], strokeWidth: 2 }} connectNulls />
                 <Line type="monotone" name="6 PM" dataKey="6 PM" stroke={COLORS.slots['6 PM']} strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: COLORS.slots['6 PM'], strokeWidth: 2 }} connectNulls />
@@ -244,12 +299,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
         <ChartBox title="TIME SLOT TRENDS (REWORK)" icon="bi-arrow-repeat">
           {trendData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData}>
+              <LineChart data={trendData} margin={{ bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} fontSize={9} dy={6} stroke="#94a3b8" />
                 <YAxis domain={[0, 100]} axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <Tooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', fontSize: '11px' }} />
-                <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ fontSize: '9px', paddingBottom: '10px' }} />
+                <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', paddingTop: '20px' }} />
                 <Line type="monotone" name="12 PM" dataKey="12 PM_rew" stroke={COLORS.slots['12 PM']} strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: COLORS.slots['12 PM'], strokeWidth: 2 }} connectNulls />
                 <Line type="monotone" name="4 PM" dataKey="4 PM_rew" stroke={COLORS.slots['4 PM']} strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: COLORS.slots['4 PM'], strokeWidth: 2 }} connectNulls />
                 <Line type="monotone" name="6 PM" dataKey="6 PM_rew" stroke={COLORS.slots['6 PM']} strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: COLORS.slots['6 PM'], strokeWidth: 2 }} connectNulls />
@@ -261,11 +316,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
         <ChartBox title="PROJECT QC AVG PER SLOT" icon="bi-bar-chart-fill">
           {barData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical">
+              <BarChart data={barData} layout="vertical" margin={{ bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <Tooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', fontSize: '11px' }} />
+                <Legend verticalAlign="bottom" align="center" iconType="rect" wrapperStyle={{ fontSize: '9px', paddingTop: '20px' }} />
                 <Bar dataKey="reg" name="Regular" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
@@ -275,11 +331,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
         <ChartBox title="REWORK PERFORMANCE PER SLOT" icon="bi-arrow-repeat">
           {barData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical">
+              <BarChart data={barData} layout="vertical" margin={{ bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <Tooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', fontSize: '11px' }} />
+                <Legend verticalAlign="bottom" align="center" iconType="rect" wrapperStyle={{ fontSize: '9px', paddingTop: '20px' }} />
                 <Bar dataKey="rew" name="Rework" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
@@ -337,11 +394,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
         )}
       </div>
 
-      {/* Footer Section: Active Agent Distribution Per Project */}
+      {/* Footer Section: Project Submission Distribution */}
       <div className="bg-white p-7 rounded-[1.5rem] border border-slate-100 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.02)] min-h-[350px]">
         <div className="flex items-center gap-2 mb-8">
            <i className="bi bi-pie-chart-fill text-orange-500 text-[16px]"></i>
-           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a2138]">ACTIVE AGENT DISTRIBUTION PER PROJECT</h3>
+           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a2138]">SUBMISSION DISTRIBUTION BY PROJECT</h3>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
@@ -355,12 +412,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
                      ))}
                    </Pie>
                    <Tooltip />
+                   <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', paddingTop: '20px' }} />
                  </PieChart>
                </ResponsiveContainer>
              ) : <EmptyState message="No Distribution" />}
              {pieData.length > 0 && (
-               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[14px] font-black text-indigo-500">{pieData[0]?.name.toLowerCase()} ({Math.round((pieData[0]?.value / stats.agents) * 100)}%)</span>
+               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
+                  {(() => {
+                    const totalSubmissions = filtered.length;
+                    const topProjectSubmissions = pieData[0]?.value || 0;
+                    const percentage = totalSubmissions > 0 ? Math.round((topProjectSubmissions / totalSubmissions) * 100) : 0;
+                    return (
+                      <span className="text-[32px] font-[900] text-[#1E2A56] tracking-tighter">
+                        {percentage}%
+                      </span>
+                    );
+                  })()}
                </div>
              )}
           </div>
@@ -371,22 +438,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
                  <thead>
                     <tr className="text-slate-300 font-black uppercase tracking-widest border-b border-slate-50">
                       <th className="pb-3 px-2">Project Name</th>
-                      <th className="pb-3 px-2 text-center">Active Agents</th>
-                      <th className="pb-3 px-2">Agent Names</th>
+                      <th className="pb-3 px-2 text-center">Submissions</th>
+                      <th className="pb-3 px-2">Agents Involved</th>
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-50">
-                    {PROJECTS.map((p, i) => {
-                      const agentsOnProject = Array.from(new Set(filtered.filter(r => r.projectName === p).map(r => r.agentName)));
-                      if (agentsOnProject.length === 0) return null;
+                    {pieData.map((data, i) => {
+                      const projectRecs = filtered.filter(r => r.projectName === data.name);
+                      const agentsOnProject = Array.from(new Set(projectRecs.map(r => r.agentName)));
                       return (
                         <tr key={i}>
                           <td className="py-4 px-2 flex items-center gap-2">
                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.pie[i % COLORS.pie.length] }}></div>
-                             <span className="font-black text-[#1a2138]">{p}</span>
+                             <span className="font-black text-[#1a2138]">{data.name}</span>
                           </td>
                           <td className="py-4 px-2 text-center">
-                             <span className="bg-slate-50 px-2 py-0.5 rounded text-slate-500 font-bold">{agentsOnProject.length}</span>
+                             <span className="bg-slate-50 px-2 py-0.5 rounded text-slate-500 font-bold">{data.value}</span>
                           </td>
                           <td className="py-4 px-2">
                              <div className="flex flex-wrap gap-1">

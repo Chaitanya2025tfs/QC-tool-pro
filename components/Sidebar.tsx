@@ -22,26 +22,46 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
   return (
     <div className="w-[15%] h-screen bg-[#1E2A56] text-white flex flex-col fixed left-0 top-0 z-50 border-r border-white/5 shadow-xl">
       <div className="p-5 pb-2">
-        {/* Compact Brand Identity Implementation */}
-        <div className="flex flex-col mb-6 group cursor-default">
-           <div className="flex items-end relative pr-6 w-fit">
+        {/* Compact Brand Identity */}
+        <div className="flex flex-col mb-4 group cursor-default">
+           <div className="flex items-end relative pr-6 w-fit mx-auto lg:mx-0">
               <span className="text-[20px] font-[900] italic text-white tracking-tighter leading-none uppercase select-none font-sans">TRANSFORM</span>
               <div className="absolute top-[-3px] right-0 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                 {/* Reconstructed Shard Arrow - Scaled down for sidebar */}
                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M2 22 L22 2 V13 Z" fill="white" />
                  </svg>
               </div>
            </div>
-           <span className="text-[10px] font-bold text-white/80 mt-1 tracking-tight pl-0.5 uppercase">
+           <span className="text-[10px] font-bold text-white/80 mt-1 tracking-tight pl-0.5 uppercase text-center lg:text-left">
              Solutions Simplified
            </span>
 
-           <div className="mt-8 flex flex-col gap-0.5 border-l-2 border-white/20 pl-3">
-              <span className="text-[12px] font-bold text-slate-100 truncate">{user.name}</span>
-              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">
-                {user.role}
-              </span>
+           {/* User Identity Section - Icon + 2 Rows Layout */}
+           <div className="mt-8 flex flex-col items-center gap-3 py-4 rounded-2xl bg-white/5 border border-white/5 shadow-inner">
+              {/* Profile Icon */}
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-lg border border-white/10">
+                <svg width="40" height="40" viewBox="0 0 100 100" className="text-black">
+                  {/* Circle Backdrop (Implicit in white container) */}
+                  <circle cx="50" cy="50" r="48" fill="white" />
+                  {/* Head */}
+                  <circle cx="50" cy="32" r="16" fill="currentColor" />
+                  {/* Body/Shoulders */}
+                  <path d="M50 52 C30 52, 18 66, 18 80 L82 80 C82 66, 70 52, 50 52 Z" fill="currentColor" />
+                  {/* Laptop */}
+                  <rect x="30" y="60" width="40" height="28" rx="3" fill="#1E2A56" />
+                  <circle cx="50" cy="74" r="2.5" fill="white" />
+                </svg>
+              </div>
+              
+              {/* Name & Role Rows */}
+              <div className="flex flex-col items-center text-center px-2">
+                <span className="text-[14px] font-black text-white leading-tight mb-1 truncate w-full">
+                  {user.name}
+                </span>
+                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest truncate w-full">
+                  {user.role}
+                </span>
+              </div>
            </div>
         </div>
       </div>

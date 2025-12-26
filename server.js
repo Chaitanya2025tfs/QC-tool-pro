@@ -36,7 +36,8 @@ async function initDB() {
         project VARCHAR(100),
         email VARCHAR(150),
         password VARCHAR(100),
-        phoneNumber VARCHAR(20)
+        phoneNumber VARCHAR(20),
+        gender VARCHAR(20)
       )
     `);
 
@@ -45,10 +46,12 @@ async function initDB() {
     const hasEmail = columns.some(c => c.Field === 'email');
     const hasPassword = columns.some(c => c.Field === 'password');
     const hasPhone = columns.some(c => c.Field === 'phoneNumber');
+    const hasGender = columns.some(c => c.Field === 'gender');
     
     if (!hasEmail) await pool.query('ALTER TABLE users ADD COLUMN email VARCHAR(150)');
     if (!hasPassword) await pool.query('ALTER TABLE users ADD COLUMN password VARCHAR(100) DEFAULT "123456"');
     if (!hasPhone) await pool.query('ALTER TABLE users ADD COLUMN phoneNumber VARCHAR(20)');
+    if (!hasGender) await pool.query('ALTER TABLE users ADD COLUMN gender VARCHAR(20)');
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS records (
@@ -127,11 +130,11 @@ app.get('/api/users', async (req, res) => {
 });
 
 app.post('/api/users', async (req, res) => {
-  const { id, name, role, project, email, password, phoneNumber } = req.body;
+  const { id, name, role, project, email, password, phoneNumber, gender } = req.body;
   try {
     await pool.query(
-      'INSERT INTO users (id, name, role, project, email, password, phoneNumber) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=?, role=?, project=?, email=?, password=?, phoneNumber=?',
-      [id, name, role, project, email, password, phoneNumber, name, role, project, email, password, phoneNumber]
+      'INSERT INTO users (id, name, role, project, email, password, phoneNumber, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=?, role=?, project=?, email=?, password=?, phoneNumber=?, gender=?',
+      [id, name, role, project, email, password, phoneNumber, gender, name, role, project, email, password, phoneNumber, gender]
     );
     res.sendStatus(200);
   } catch (err) {

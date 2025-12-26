@@ -98,17 +98,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-[440px] bg-white rounded-[3rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.1)] p-14 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500 border border-white">
           
-          {/* Exact Brand Logo Reconstruction for Login Screen */}
-          <div className="flex flex-col items-center mb-12 group text-[#1E2A56]">
-             <div className="flex items-end relative pr-12">
-                <span className="text-[58px] font-[900] italic tracking-tighter leading-none uppercase select-none">TRANSFORM</span>
-                <div className="absolute top-[-8px] right-0 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1">
-                   <svg width="56" height="56" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Brand Logo Reconstruction - Scaled for better fit */}
+          <div className="flex flex-col items-center mb-10 group text-[#1E2A56]">
+             <div className="flex items-end relative pr-10">
+                <span className="text-[48px] font-[900] italic tracking-tighter leading-none uppercase select-none">TRANSFORM</span>
+                <div className="absolute top-[-4px] right-0 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1">
+                   <svg width="46" height="46" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M2 22 L22 2 V13 Z" fill="#1E2A56" />
                    </svg>
                 </div>
              </div>
-             <span className="text-[22px] font-bold mt-2 tracking-tight text-[#1E2A56]/90">
+             <span className="text-[18px] font-bold mt-2 tracking-tight text-[#1E2A56]/90">
                Solutions Simplified
              </span>
           </div>

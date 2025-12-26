@@ -40,6 +40,7 @@ const AdminPanel: React.FC = () => {
   const [newUser, setNewUser] = useState<Partial<User>>({
     name: '',
     role: 'AGENT',
+    gender: 'Male',
     email: '',
     password: '123456',
     phoneNumber: ''
@@ -163,7 +164,8 @@ const AdminPanel: React.FC = () => {
         
         setNewUser({ 
           name: '', 
-          role: 'AGENT', 
+          role: 'AGENT',
+          gender: 'Male',
           email: '', 
           password: '123456', 
           phoneNumber: '' 
@@ -222,12 +224,20 @@ const AdminPanel: React.FC = () => {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
-              <input type="text" value={newUser.phoneNumber} onChange={e => setNewUser({...newUser, phoneNumber: e.target.value})} className="admin-input" placeholder="9876543210" />
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Gender</label>
+              <select value={newUser.gender} onChange={e => setNewUser({...newUser, gender: e.target.value})} className="admin-input cursor-pointer">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
+              <input type="text" value={newUser.phoneNumber} onChange={e => setNewUser({...newUser, phoneNumber: e.target.value})} className="admin-input" placeholder="9876543210" />
+            </div>
             <div className="space-y-1.5">
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Email</label>
               <input type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} className="admin-input" placeholder="Email" />
@@ -350,13 +360,18 @@ const AdminPanel: React.FC = () => {
                </div>
                <div className="space-y-1">
                   <h3 className="text-[20px] font-black text-[#1E2A56] uppercase tracking-tight">{selectedUserDetails.name}</h3>
-                  <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${
-                    selectedUserDetails.role === 'ADMIN' ? 'bg-rose-50 text-rose-500' : 
-                    selectedUserDetails.role === 'MANAGER' ? 'bg-indigo-50 text-indigo-500' :
-                    selectedUserDetails.role === 'QC' ? 'bg-amber-50 text-amber-500' : 'bg-slate-50 text-slate-500'
-                  }`}>
-                    {selectedUserDetails.role}
-                  </span>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${
+                      selectedUserDetails.role === 'ADMIN' ? 'bg-rose-50 text-rose-500' : 
+                      selectedUserDetails.role === 'MANAGER' ? 'bg-indigo-50 text-indigo-500' :
+                      selectedUserDetails.role === 'QC' ? 'bg-amber-50 text-amber-500' : 'bg-slate-50 text-slate-500'
+                    }`}>
+                      {selectedUserDetails.role}
+                    </span>
+                    <span className="text-[10px] font-black bg-slate-100 text-slate-400 px-3 py-1 rounded-full uppercase tracking-widest">
+                      {selectedUserDetails.gender || 'N/A'}
+                    </span>
+                  </div>
                </div>
             </div>
 
@@ -475,7 +490,7 @@ const AdminPanel: React.FC = () => {
       {/* Verification Modal System for Password/Phone/Add */}
       {verifyModal.isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1E2A56]/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 p-10 relative">
+          <div className="bg-white w-full max-sm rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 p-10 relative">
             
             <button 
               onClick={closeVerification} 
