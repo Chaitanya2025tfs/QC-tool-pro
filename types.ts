@@ -36,8 +36,8 @@ export interface QCRecord {
   qcCheckerName: string;
   projectName: string;
   taskName: string;
-  score: number; // This is the aggregate score
-  reworkScore?: number;
+  score: number; // This acts as the Regular Score
+  reworkScore?: number; // This acts as the Rework Score
   isRework: boolean;
   notes: string;
   noWork: boolean;

@@ -13,11 +13,18 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [records, setRecords] = useState<QCRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<QCRecord | undefined>();
 
+  const loadData = async () => {
+    setLoading(true);
+    const fetchedRecords = await storage.getRecords();
+    setRecords(fetchedRecords);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    // Initial data load
-    setRecords(storage.getRecords());
+    loadData();
   }, []);
 
   const handleLogin = (loggedUser: User) => {
@@ -29,18 +36,18 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const saveRecord = (record: QCRecord) => {
-    storage.saveRecord(record);
-    setRecords(storage.getRecords());
+  const saveRecord = async (record: QCRecord) => {
+    setLoading(true);
+    await storage.saveRecord(record);
+    await loadData();
     setActiveTab('report-table');
     setEditingRecord(undefined);
   };
 
-  const deleteRecord = (id: string) => {
-    if (confirm("Are you sure you want to delete this record?")) {
-      storage.deleteRecord(id);
-      setRecords(storage.getRecords());
-    }
+  const deleteRecord = async (id: string) => {
+    setLoading(true);
+    await storage.deleteRecord(id);
+    await loadData();
   };
 
   const startEdit = (record: QCRecord) => {
@@ -61,7 +68,16 @@ const App: React.FC = () => {
         onLogout={handleLogout} 
       />
       
-      <main className="flex-1 ml-64 min-h-screen transition-all">
+      <main className="flex-1 ml-64 min-h-screen transition-all relative">
+        {loading && (
+          <div className="absolute inset-0 z-50 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-[10px] font-normal text-indigo-500 uppercase tracking-widest">Syncing with DB...</span>
+            </div>
+          </div>
+        )}
+        
         {activeTab === 'dashboard' && <Dashboard user={user} records={records} />}
         {activeTab === 'qc-form' && (
           <QCForm 

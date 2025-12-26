@@ -12,8 +12,9 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogout }) => {
   const tabs = [
     { id: 'dashboard', icon: 'bi-speedometer2', label: 'Dashboard', roles: ['ADMIN', 'MANAGER', 'QC', 'AGENT'] },
-    { id: 'qc-form', icon: 'bi-file-earmark-check', label: 'Qc form', roles: ['ADMIN', 'MANAGER', 'QC'] },
-    { id: 'report-table', icon: 'bi-table', label: 'Report table', roles: ['ADMIN', 'MANAGER', 'QC', 'AGENT'] },
+    { id: 'qc-form', icon: 'bi-file-earmark-text', label: 'Qc form', roles: ['ADMIN', 'MANAGER', 'QC'] },
+    { id: 'report-table', icon: 'bi-grid-3x3-gap-fill', label: 'Report table', roles: ['ADMIN', 'MANAGER', 'QC', 'AGENT'] },
+    { id: 'admin-panel', icon: 'bi-shield-lock', label: 'Admin Panel', roles: ['ADMIN'] },
   ];
 
   const filteredTabs = tabs.filter(tab => tab.roles.includes(user.role));
@@ -24,39 +25,47 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
   };
 
   return (
-    <div className="w-64 h-screen bg-[#111827] text-white flex flex-col fixed left-0 top-0 z-20">
-      <div className="p-6 pt-10">
-        <h1 className="text-sm font-black text-white uppercase tracking-wider">QC EVALUATOR</h1>
-        <div className="mt-1 flex flex-col">
-          <span className="text-[11px] font-bold text-slate-400">{user.name}</span>
-          <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter">{getRoleLabel(user.role)}</span>
+    <div className="w-64 h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-20">
+      <div className="p-8 pb-4">
+        <h1 className="text-[25px] font-black text-white tracking-tight">QC EVALUATOR</h1>
+        <div className="mt-3 flex flex-col">
+          <span className="text-[19px] font-medium text-slate-300">{user.name}</span>
+          <span className="text-[16px] font-bold text-[#6366f1] uppercase tracking-wider mt-0.5">
+            {getRoleLabel(user.role)}
+          </span>
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 mt-6">
+      <div className="px-6 py-4">
+        <div className="h-px bg-slate-800 w-full opacity-50"></div>
+      </div>
+
+      <nav className="flex-1 p-4 space-y-2 mt-2">
         {filteredTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 ${
+            className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all duration-200 group ${
               activeTab === tab.id
-                ? 'bg-[#4f46e5] text-white'
-                : 'text-slate-300 hover:bg-slate-800'
+                ? 'bg-[#4f46e5] text-white shadow-lg shadow-indigo-500/20'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
             }`}
           >
-            <i className={`bi ${tab.icon} text-sm`}></i>
-            <span className="text-[13px] font-bold">{tab.label}</span>
+            <i className={`bi ${tab.icon} text-[23px] ${activeTab === tab.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}></i>
+            <span className={`text-[20px] ${activeTab === tab.id ? 'font-semibold' : 'font-medium'}`}>
+              {tab.label}
+            </span>
           </button>
         ))}
       </nav>
 
-      <div className="p-4">
+      <div className="p-4 mt-auto border-t border-slate-800/50">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-white transition-colors"
+          className="w-full flex items-center gap-4 px-5 py-4 rounded-xl text-slate-400 hover:text-white hover:bg-rose-500/10 transition-all group"
         >
-          <i className="bi bi-box-arrow-right text-sm"></i>
-          <span className="text-[13px] font-bold">Logout</span>
+          <i className="bi bi-box-arrow-left text-[23px] group-hover:scale-110 transition-transform"></i>
+          <span className="text-[20px] font-medium">Logout</span>
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { QCRecord, User, SampleResult } from '../types';
 import { TEAM_LEADERS, QC_CHECKERS, AGENTS, PROJECTS, ALL_ERRORS, TIME_SLOTS } from '../constants';
 
@@ -14,7 +14,6 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
   const [formData, setFormData] = useState<Partial<QCRecord>>({
     id: Math.random().toString(36).substr(2, 9),
     date: new Date().toISOString().split('T')[0],
-    time: { hr: '12', min: '00', period: 'PM' },
     timeSlot: '12 PM',
     tlName: TEAM_LEADERS[0],
     agentName: AGENTS[0],
@@ -22,6 +21,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
     projectName: PROJECTS[0],
     taskName: '',
     score: 100,
+    reworkScore: undefined,
     isRework: false,
     notes: '',
     noWork: false,
@@ -31,6 +31,11 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
     samples: [],
     samplingRange: { start: '', end: '' }
   });
+
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  
+  const mainInfoRef = useRef<HTMLDivElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editRecord) {
@@ -47,7 +52,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
     return Math.max(0, base);
   };
 
-  const aggregateScore = useMemo(() => {
+  const currentFormScore = useMemo(() => {
     if (formData.noWork) return 0;
     const scores = (formData.samples || []).map(s => s.score);
     if (formData.manualQC) scores.push(calculateSampleScore(formData.manualErrors || []));
@@ -79,9 +84,6 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
     if (sample.isClean) {
       sample.errors = [];
       sample.score = 100;
-    } else {
-        // If unchecking clean, score remains 100 unless errors are re-added
-        sample.score = 100;
     }
     newSamples[sampleIdx] = sample;
     setFormData({ ...formData, samples: newSamples });
@@ -90,22 +92,28 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
   const generateSampling = () => {
     const { start, end } = formData.samplingRange || { start: '', end: '' };
     if (!start || !end) return;
-
-    const sNum = parseInt(start);
-    const eNum = parseInt(end);
+    
+    const startMatch = start.match(/(\d+)$/);
+    const endMatch = end.match(/(\d+)$/);
+    
+    const sNum = parseInt(startMatch ? startMatch[0] : '0');
+    const eNum = parseInt(endMatch ? endMatch[0] : '0');
     
     if (isNaN(sNum) || isNaN(eNum)) return;
 
-    const count = Math.abs(eNum - sNum) + 1;
-    const sampleSize = Math.ceil(count * 0.1);
+    const prefixStart = startMatch ? start.substring(0, start.length - startMatch[0].length) : '';
+    const range = Math.abs(eNum - sNum) + 1;
+    const sampleSize = Math.ceil(range * 0.1);
     const indices = new Set<number>();
     
-    while (indices.size < Math.min(sampleSize, count)) {
-      indices.add(Math.floor(Math.random() * count) + Math.min(sNum, eNum));
+    const min = Math.min(sNum, eNum);
+
+    while (indices.size < Math.min(sampleSize, range)) {
+      indices.add(Math.floor(Math.random() * range) + min);
     }
 
     const generatedSamples: SampleResult[] = Array.from(indices).sort((a, b) => a - b).map(idx => ({
-      sampleId: idx.toString(),
+      sampleId: `${prefixStart}${idx.toString().padStart(2, '0')}`,
       errors: [],
       isClean: true,
       score: 100
@@ -116,14 +124,39 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.notes && !formData.noWork) {
-      alert("Comment section is mandatory!");
+    const newErrors: Record<string, boolean> = {};
+
+    if (!formData.taskName) newErrors.taskName = true;
+    if (!formData.notes && !formData.noWork) newErrors.notes = true;
+    if (!formData.tlName) newErrors.tlName = true;
+    if (!formData.agentName) newErrors.agentName = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      
+      if (newErrors.taskName || newErrors.tlName || newErrors.agentName) {
+        mainInfoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (newErrors.notes) {
+        feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
+
+    let finalScore = formData.score || 100;
+    let finalReworkScore = formData.reworkScore;
+
+    if (formData.isRework) {
+      if (editRecord) finalScore = editRecord.score;
+      finalReworkScore = currentFormScore;
+    } else {
+      finalScore = currentFormScore;
+      finalReworkScore = undefined;
+    }
+
     const finalRecord = {
       ...formData,
-      score: aggregateScore,
-      reworkScore: formData.isRework ? aggregateScore : undefined,
+      score: finalScore,
+      reworkScore: finalReworkScore,
       createdAt: Date.now(),
     } as QCRecord;
     
@@ -131,250 +164,273 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
   };
 
   return (
-    <div className="max-w-6xl mx-auto my-8 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
-      {/* Header matching screenshot */}
-      <div className="bg-[#1a2138] text-white px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]"></div>
-          <h2 className="text-base font-bold uppercase tracking-wide">
-            {editRecord ? 'Update Audit Entry' : 'New Audit Entry'}
-          </h2>
+    <div className="w-[85%] mx-auto my-10 bg-white rounded-[1.5rem] shadow-sm border border-slate-300 overflow-hidden font-sans">
+      <div className="bg-[#111827] text-white px-10 py-6 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="w-3.5 h-3.5 rounded-full bg-[#10b981]"></div>
+          <h2 className="text-[23px] font-normal uppercase tracking-[0.2em] mb-0">Fill Daily Audit</h2>
         </div>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">One Task Per Submission</span>
+        <span className="text-[16px] font-bold text-black uppercase tracking-widest bg-[#1a2138] px-4 py-2 rounded-full">One Task Per Submission</span>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-8 space-y-6">
-        {/* Row 1: Date, Time Slot, Agent Name */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <FormField label="Evaluation Date">
-            <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="form-input-audit" />
-          </FormField>
-          <FormField label="Evaluation Time Slot">
-            <select value={formData.timeSlot} onChange={e => setFormData({...formData, timeSlot: e.target.value as any})} className="form-input-audit">
-              {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Agent Name">
-            <select value={formData.agentName} onChange={e => setFormData({...formData, agentName: e.target.value})} className="form-input-audit">
-              {AGENTS.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </FormField>
-        </div>
-
-        {/* Row 2: Campaign, Task Name */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <FormField label="Campaign Project">
-            <select value={formData.projectName} onChange={e => setFormData({...formData, projectName: e.target.value})} className="form-input-audit">
-              {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </FormField>
-          <div className="md:col-span-2">
-            <FormField label="Task / File Name">
-              <input type="text" placeholder="Task Name..." value={formData.taskName} onChange={e => setFormData({...formData, taskName: e.target.value})} className="form-input-audit" />
+      <form onSubmit={handleSubmit} className="p-10 space-y-10">
+        <div ref={mainInfoRef} className={`border ${Object.keys(errors).some(k => ['taskName', 'tlName', 'agentName'].includes(k)) ? 'border-rose-400 bg-rose-50/10' : 'border-slate-300'} rounded-[2.5rem] p-12 space-y-12 transition-all duration-300`}>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            <FormField label="EVALUATION DATE">
+              <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="form-input-audit" />
             </FormField>
+            <FormField label="EVALUATION TIME SLOT">
+              <select value={formData.timeSlot} onChange={e => setFormData({...formData, timeSlot: e.target.value as any})} className="form-input-audit appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231a2138%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat pr-12">
+                {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
+              </select>
+            </FormField>
+            <FormField label="AGENT NAME">
+              <select 
+                value={formData.agentName} 
+                onChange={e => {
+                  setFormData({...formData, agentName: e.target.value});
+                  setErrors({...errors, agentName: false});
+                }} 
+                className={`form-input-audit appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231a2138%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat pr-12 ${errors.agentName ? 'border-rose-500 ring-2 ring-rose-500/10' : ''}`}
+              >
+                <option value="">Choose Agent...</option>
+                {AGENTS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              {errors.agentName && <span className="text-[15px] text-rose-500 font-normal uppercase ml-2">Required</span>}
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            <FormField label="CAMPAIGN PROJECT">
+              <select value={formData.projectName} onChange={e => setFormData({...formData, projectName: e.target.value})} className="form-input-audit appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231a2138%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat pr-12">
+                {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </FormField>
+            <div className="md:col-span-2">
+              <FormField label="TASK / FILE NAME">
+                <input 
+                  type="text" 
+                  placeholder="Enter unique task ID or name..." 
+                  value={formData.taskName} 
+                  onChange={e => {
+                    setFormData({...formData, taskName: e.target.value});
+                    setErrors({...errors, taskName: false});
+                  }} 
+                  className={`form-input-audit ${errors.taskName ? 'border-rose-500 ring-2 ring-rose-500/10' : ''}`} 
+                />
+                {errors.taskName && <span className="text-[15px] text-rose-500 font-normal uppercase ml-2">Task Details are mandatory!</span>}
+              </FormField>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 pt-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <FormField label="LEAD / MANAGER">
+                <select 
+                  value={formData.tlName} 
+                  onChange={e => {
+                    setFormData({...formData, tlName: e.target.value});
+                    setErrors({...errors, tlName: false});
+                  }} 
+                  className={`form-input-audit appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231a2138%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat pr-12 ${errors.tlName ? 'border-rose-500 ring-2 ring-rose-500/10' : ''}`}
+                >
+                  <option value="">Select Manager...</option>
+                  {TEAM_LEADERS.map(tl => <option key={tl} value={tl}>{tl}</option>)}
+                </select>
+                {errors.tlName && <span className="text-[15px] text-rose-500 font-normal uppercase ml-2">Required</span>}
+              </FormField>
+              <FormField label="QC EVALUATOR">
+                <select value={formData.qcCheckerName} onChange={e => setFormData({...formData, qcCheckerName: e.target.value})} className="form-input-audit appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231a2138%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat pr-12 font-normal">
+                  {QC_CHECKERS.map(q => <option key={q} value={q}>{q}</option>)}
+                </select>
+              </FormField>
+            </div>
           </div>
         </div>
 
-        {/* Row 3: Lead, QC Evaluator */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField label="Lead / Manager">
-            <select value={formData.tlName} onChange={e => setFormData({...formData, tlName: e.target.value})} className="form-input-audit">
-              {TEAM_LEADERS.map(tl => <option key={tl} value={tl}>{tl}</option>)}
-            </select>
-          </FormField>
-          <FormField label="QC Evaluator">
-            <select value={formData.qcCheckerName} onChange={e => setFormData({...formData, qcCheckerName: e.target.value})} className="form-input-audit">
-              {QC_CHECKERS.map(q => <option key={q} value={q}>{q}</option>)}
-            </select>
-          </FormField>
-        </div>
-
-        {/* Dark Status Bar */}
-        <div className="bg-[#121826] p-6 rounded-xl flex items-center gap-16 text-white">
-          <label className="flex items-center gap-3 cursor-pointer select-none group">
-            <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${formData.isRework ? 'bg-blue-600 border-blue-600' : 'border-slate-500 group-hover:border-blue-400'}`}>
-              {formData.isRework && <i className="bi bi-check-lg text-white text-sm"></i>}
-              <input type="checkbox" className="hidden" checked={formData.isRework} onChange={e => setFormData({...formData, isRework: e.target.checked})} />
-            </div>
+        <div className="bg-[#0f172a] p-10 rounded-[1.5rem] flex items-center gap-16 text-white shadow-lg">
+          <label className="flex items-center gap-5 cursor-pointer group">
+            <input 
+              type="checkbox" 
+              className="w-7 h-7 rounded border-slate-600 bg-transparent text-indigo-500 focus:ring-indigo-500" 
+              checked={formData.isRework} 
+              onChange={e => setFormData({...formData, isRework: e.target.checked})} 
+            />
             <div>
-              <div className="text-[11px] font-black uppercase tracking-widest">Perform Rework Audit</div>
-              <div className="text-[9px] text-slate-400 font-medium">Mark as corrected version</div>
+              <div className="text-[19px] font-normal uppercase tracking-widest text-slate-100">Perform Rework Audit</div>
+              <div className="text-[15px] text-black font-bold uppercase tracking-widest">Mark as corrected version</div>
             </div>
           </label>
-
-          <label className="flex items-center gap-3 cursor-pointer select-none group">
-            <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${formData.noWork ? 'bg-slate-400 border-slate-400' : 'border-slate-500 group-hover:border-slate-400'}`}>
-              {formData.noWork && <i className="bi bi-check-lg text-white text-sm"></i>}
-              <input type="checkbox" className="hidden" checked={formData.noWork} onChange={e => setFormData({...formData, noWork: e.target.checked})} />
-            </div>
-            <div className="text-[11px] font-black uppercase tracking-widest">No Target / Absent</div>
+          <label className="flex items-center gap-5 cursor-pointer group">
+            <input 
+              type="checkbox" 
+              className="w-7 h-7 rounded border-slate-600 bg-transparent text-indigo-500 focus:ring-indigo-500" 
+              checked={formData.noWork} 
+              onChange={e => {
+                setFormData({...formData, noWork: e.target.checked});
+                if (e.target.checked) setErrors({...errors, notes: false});
+              }} 
+            />
+            <div className="text-[19px] font-normal uppercase tracking-widest text-slate-100">No Target / Absent</div>
           </label>
         </div>
 
-        {/* Audit Protocol & Manual Entry Section */}
-        {!formData.noWork && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 text-[#4f46e5]">
-              <i className="bi bi-search text-lg"></i>
-              <h3 className="text-[13px] font-black uppercase tracking-widest">Audit Protocol & Manual Entry</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input 
-                type="text" 
-                placeholder="Range Start (e.g. 1)" 
-                value={formData.samplingRange?.start}
-                onChange={e => setFormData({...formData, samplingRange: { ...formData.samplingRange!, start: e.target.value }})}
-                className="form-input-audit"
-              />
-              <input 
-                type="text" 
-                placeholder="Range End (e.g. 100)" 
-                value={formData.samplingRange?.end}
-                onChange={e => setFormData({...formData, samplingRange: { ...formData.samplingRange!, end: e.target.value }})}
-                className="form-input-audit"
-              />
-            </div>
-            
-            <button 
-              type="button" 
-              onClick={generateSampling}
-              className="w-full py-4 bg-indigo-50 border border-indigo-200 text-[#4f46e5] rounded-xl font-bold hover:bg-indigo-100 transition-all uppercase text-[11px] tracking-[0.2em] shadow-sm"
-            >
-              Generate 10% Samples
-            </button>
+        <div className="space-y-8">
+           <div className="flex items-center gap-3 text-[#4f46e5]">
+             <i className="bi bi-search text-[25px] font-normal"></i>
+             <h3 className="text-[23px] font-normal uppercase tracking-widest text-black">Audit Protocol & Manual Entry</h3>
+           </div>
 
-            {/* Error Table */}
-            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-[#fafafa]">
-              <div className="overflow-x-auto">
-                <table className="w-full text-[10px]">
-                  <thead>
-                    <tr className="bg-slate-100/50 border-b border-slate-200">
-                      <th className="px-5 py-4 text-left font-black text-slate-400 uppercase tracking-tighter w-24">Sample ID</th>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <input 
+               type="text" 
+               placeholder="Code Start (e.g. Altrum/01)" 
+               value={formData.samplingRange?.start}
+               onChange={e => setFormData({...formData, samplingRange: { ...formData.samplingRange!, start: e.target.value }})}
+               className="w-full px-8 py-5 bg-[#f8fafc] border border-slate-300 rounded-[1rem] text-[21px] font-normal text-black outline-none"
+             />
+             <input 
+               type="text" 
+               placeholder="Code End (e.g. Altrum/100)" 
+               value={formData.samplingRange?.end}
+               onChange={e => setFormData({...formData, samplingRange: { ...formData.samplingRange!, end: e.target.value }})}
+               className="w-full px-8 py-5 bg-[#f8fafc] border border-slate-300 rounded-[1rem] text-[21px] font-normal text-black outline-none"
+             />
+           </div>
+
+           <button 
+             type="button" 
+             onClick={generateSampling}
+             className="w-full py-6 bg-[#f0f2ff] border-2 border-dashed border-[#c7d2fe] text-[#4f46e5] rounded-[1.25rem] font-normal uppercase text-[20px] tracking-[0.2em] hover:bg-[#e0e7ff] transition-all"
+           >
+             Generate 10% Samples
+           </button>
+        </div>
+
+        {!formData.noWork && (
+          <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[16px] border-collapse">
+                <thead>
+                  <tr className="bg-[#f8fafc] border-b border-slate-200">
+                    <th className="px-8 py-6 text-left font-bold text-black uppercase tracking-widest border-r border-slate-200 w-36">Sample ID</th>
+                    {ALL_ERRORS.map(err => (
+                      <th key={err.label} className="px-2 py-6 text-center font-bold text-black uppercase tracking-tighter leading-tight border-r border-slate-200 max-w-[100px]">
+                        {err.shortLabel}
+                      </th>
+                    ))}
+                    <th className="px-4 py-6 text-center font-bold text-black uppercase tracking-widest border-r border-slate-200">Clean</th>
+                    <th className="px-8 py-6 text-right font-bold text-black uppercase tracking-widest">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.samples?.map((sample, idx) => (
+                    <tr key={sample.sampleId} className="border-b border-slate-100">
+                      <td className="px-8 py-5 font-normal text-black border-r border-slate-200">{sample.sampleId}</td>
                       {ALL_ERRORS.map(err => (
-                        <th key={err.label} className="px-2 py-4 text-center font-black text-slate-400 uppercase tracking-tighter leading-tight max-w-[80px]">
-                          {err.shortLabel}
-                        </th>
-                      ))}
-                      <th className="px-3 py-4 text-center font-black text-blue-500 uppercase tracking-tighter">Clean</th>
-                      <th className="px-5 py-4 text-right font-black text-slate-400 uppercase tracking-tighter">Score</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {formData.samples?.map((sample, idx) => (
-                      <tr key={sample.sampleId} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-4 font-black text-slate-700">{sample.sampleId}</td>
-                        {ALL_ERRORS.map(err => (
-                          <td key={err.label} className="px-2 py-4 text-center">
-                            <input 
-                              type="checkbox" 
-                              checked={sample.errors.includes(err.label)}
-                              onChange={() => handleToggleSampleError(idx, err.label)}
-                              className="w-4 h-4 text-blue-600 rounded cursor-pointer transition-transform active:scale-90"
-                            />
-                          </td>
-                        ))}
-                        <td className="px-3 py-4 text-center">
+                        <td key={err.label} className="px-2 py-5 text-center border-r border-slate-200">
                           <input 
                             type="checkbox" 
-                            checked={sample.isClean}
-                            onChange={() => handleToggleSampleClean(idx)}
-                            className="w-4 h-4 text-green-500 rounded cursor-pointer transition-transform active:scale-90"
+                            checked={sample.errors.includes(err.label)}
+                            onChange={() => handleToggleSampleError(idx, err.label)}
+                            className="w-5 h-5 text-indigo-600 rounded cursor-pointer"
                           />
                         </td>
-                        <td className="px-5 py-4 text-right font-black text-slate-800 text-sm">
-                          {sample.score}
-                        </td>
-                      </tr>
-                    ))}
-                    {(!formData.samples || formData.samples.length === 0) && (
-                      <tr><td colSpan={ALL_ERRORS.length + 3} className="px-5 py-10 text-center text-slate-300 font-bold uppercase tracking-widest italic opacity-50">Generate samples to start audit</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                      <td className="px-4 py-5 text-center border-r border-slate-200">
+                        <input 
+                          type="checkbox" 
+                          checked={sample.isClean}
+                          onChange={() => handleToggleSampleClean(idx)}
+                          className="w-5 h-5 text-emerald-500 rounded cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-8 py-5 text-right font-normal text-black text-[19px]">{sample.score}%</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-[#fafbfc]">
+                    <td className="px-8 py-10 border-r border-slate-200">
+                      <label className="flex items-center gap-4 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.manualQC} 
+                          onChange={e => setFormData({...formData, manualQC: e.target.checked})} 
+                          className="w-6 h-6 rounded border-slate-300" 
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-[17px] font-normal uppercase text-black tracking-widest">Manual Audit</span>
+                          <span className="text-[15px] text-black font-bold uppercase">Track extra findings</span>
+                        </div>
+                      </label>
+                    </td>
+                    <td colSpan={ALL_ERRORS.length} className="px-8 py-10 border-r border-slate-200">
+                      <div className={`grid grid-cols-2 gap-y-4 gap-x-8 transition-opacity ${!formData.manualQC && 'opacity-20 pointer-events-none'}`}>
+                        {ALL_ERRORS.map(err => (
+                          <label key={err.label} className="flex items-center gap-3 group cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={formData.manualErrors?.includes(err.label)}
+                              onChange={() => {
+                                const newErrors = formData.manualErrors?.includes(err.label)
+                                  ? formData.manualErrors.filter(e => e !== err.label)
+                                  : [...(formData.manualErrors || []), err.label];
+                                setFormData({...formData, manualErrors: newErrors});
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 shadow-sm"
+                            />
+                            <span className="text-[15px] font-bold text-black uppercase tracking-tighter group-hover:text-black transition-colors">{err.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </td>
+                    <td colSpan={2} className="px-8 py-10">
+                       <div className={`flex flex-col gap-3 ${!formData.manualQC && 'opacity-20 pointer-events-none'}`}>
+                         <span className="text-[15px] font-bold uppercase text-black tracking-widest">Manual Feedback:</span>
+                         <textarea 
+                           className="w-full text-[16px] p-4 bg-white border border-slate-200 rounded-xl h-24 outline-none focus:border-indigo-500 transition-all shadow-sm resize-none font-normal text-black"
+                           placeholder="Specific manual findings..."
+                           value={formData.manualFeedback}
+                           onChange={e => setFormData({...formData, manualFeedback: e.target.value})}
+                         ></textarea>
+                       </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* Manual Audit Section */}
-            <div className="p-8 border border-slate-200 rounded-2xl bg-white flex flex-col lg:flex-row gap-10 shadow-sm">
-              <div className="flex-none">
-                <label className="flex items-center gap-4 cursor-pointer group">
-                  <input type="checkbox" checked={formData.manualQC} onChange={e => setFormData({...formData, manualQC: e.target.checked})} className="w-6 h-6 rounded border-slate-300" />
-                  <div>
-                    <div className="text-[11px] font-black uppercase text-slate-400 tracking-widest group-hover:text-slate-600 transition-colors">Manual Audit</div>
-                    <div className="text-[9px] text-slate-500 font-medium">Track extra findings</div>
-                  </div>
-                </label>
+            <div className="bg-[#1a2138] p-10 flex items-center justify-between text-white border-t border-slate-700">
+              <div className="flex flex-col gap-2">
+                <span className="text-[19px] font-normal uppercase tracking-[0.2em]">Aggregate Task Score</span>
+                <span className="text-[16px] text-black font-bold uppercase tracking-widest">Avg of {formData.samples?.length || 0} data points</span>
               </div>
-
-              <div className={`flex-1 grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-x-8 gap-y-3 transition-opacity duration-300 ${!formData.manualQC && 'opacity-20 pointer-events-none'}`}>
-                <div className="col-span-full mb-1 text-[9px] font-black uppercase text-slate-400 tracking-widest">Pick Manual Errors:</div>
-                {ALL_ERRORS.map(err => (
-                  <label key={err.label} className="flex items-center gap-3 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      checked={formData.manualErrors?.includes(err.label)}
-                      onChange={() => {
-                        const newErrors = formData.manualErrors?.includes(err.label)
-                          ? formData.manualErrors.filter(e => e !== err.label)
-                          : [...(formData.manualErrors || []), err.label];
-                        setFormData({...formData, manualErrors: newErrors});
-                      }}
-                      className="w-3.5 h-3.5 rounded border-slate-300"
-                    />
-                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors">{err.label}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div className={`flex-1 ${!formData.manualQC && 'opacity-20 pointer-events-none'}`}>
-                <div className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Manual Feedback:</div>
-                <textarea 
-                  className="w-full text-[11px] p-4 border border-slate-200 rounded-xl h-24 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all resize-none font-medium text-slate-600"
-                  placeholder="Specific manual findings..."
-                  value={formData.manualFeedback}
-                  onChange={e => setFormData({...formData, manualFeedback: e.target.value})}
-                ></textarea>
-              </div>
-            </div>
-
-            {/* Task Score Box matching screenshot */}
-            <div className="bg-[#121826] rounded-2xl p-6 flex items-center justify-between text-white border-l-[6px] border-[#4ade80] shadow-2xl">
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Aggregate Task Score</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Avg of {formData.samples?.length || 0} data points</span>
-              </div>
-              <div className="text-5xl font-black text-[#4ade80] tracking-tighter">
-                {aggregateScore}%
+              <div className="text-[65px] font-normal text-[#10b981] tracking-tighter">
+                {currentFormScore}%
               </div>
             </div>
           </div>
         )}
 
-        {/* Global Feedback Section */}
-        <div className="space-y-3">
-          <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Global Coaching Feedback & Final Notes (Mandatory)</label>
+        <div ref={feedbackRef} className={`space-y-6 transition-all duration-300 ${errors.notes ? 'p-6 rounded-3xl bg-rose-50/20 border border-rose-200' : ''}`}>
+          <label className={`text-[18px] font-bold uppercase tracking-widest ml-1 ${errors.notes ? 'text-rose-500' : 'text-black'}`}>Global Coaching Feedback & Final Notes (Mandatory)</label>
           <textarea 
-            className="w-full p-6 border border-slate-200 rounded-2xl h-40 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all text-sm font-medium text-slate-600 shadow-sm"
-            placeholder="Provide detailed evaluation notes and coaching points..."
+            className={`w-full p-10 bg-white border ${errors.notes ? 'border-rose-400 focus:ring-rose-500/10' : 'border-slate-300 focus:ring-indigo-500/5'} rounded-[1.5rem] h-64 outline-none focus:ring-4 focus:border-indigo-500 transition-all text-[23px] font-normal text-black shadow-sm`}
+            placeholder="Summarize overall findings for the entire task..."
             value={formData.notes}
-            onChange={e => setFormData({...formData, notes: e.target.value})}
+            onChange={e => {
+              setFormData({...formData, notes: e.target.value});
+              setErrors({...errors, notes: false});
+            }}
           ></textarea>
+          {errors.notes && <p className="text-rose-500 text-[17px] font-normal uppercase tracking-widest ml-1">Comment section is mandatory!</p>}
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex items-center gap-6 pt-4">
-          <button 
-            type="submit"
-            className="flex-1 py-5 bg-[#4f46e5] text-white font-black uppercase tracking-[0.3em] text-[12px] rounded-2xl hover:bg-[#4338ca] hover:shadow-xl hover:shadow-indigo-500/20 active:scale-[0.98] transition-all shadow-lg"
-          >
-            {editRecord ? 'Update Audit' : 'Submit Audit'}
+        <div className="flex items-center gap-10 pt-4">
+          <button type="submit" className="flex-1 py-7 bg-[#4f46e5] text-white font-normal uppercase tracking-[0.4em] text-[21px] rounded-[1.25rem] hover:bg-indigo-700 shadow-2xl shadow-indigo-500/30 active:scale-[0.98] transition-all">
+            Submit Audit
           </button>
-          <button 
-            type="button"
-            onClick={onDiscard}
-            className="px-12 py-5 bg-slate-100 text-slate-800 font-black uppercase tracking-[0.2em] text-[12px] rounded-2xl hover:bg-slate-200 active:scale-[0.98] transition-all"
-          >
+          <button type="button" onClick={onDiscard} className="px-20 py-7 bg-[#f3f4f6] text-black font-normal uppercase tracking-[0.2em] text-[21px] rounded-[1.25rem] hover:bg-slate-200 transition-all">
             Discard
           </button>
         </div>
@@ -382,10 +438,32 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
 
       <style>{`
         .form-input-audit {
-          @apply w-full px-5 py-4 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500/50 shadow-sm;
+          width: 100%;
+          padding: 1.25rem 2rem;
+          background-color: white;
+          border: 1px solid #cbd5e1;
+          border-radius: 1.25rem;
+          font-size: 1.4rem;
+          font-weight: 400;
+          color: #000;
+          outline: none;
+          transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+          cursor: pointer;
         }
-        input[type="checkbox"] {
-          @apply cursor-pointer;
+        .form-input-audit:focus {
+          background-color: white;
+          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.05);
+          border-color: #4f46e5;
+        }
+        
+        input[type="date"]::-webkit-calendar-picker-indicator {
+          cursor: pointer;
+          opacity: 0.5;
+          transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+          opacity: 1;
         }
       `}</style>
     </div>
@@ -393,8 +471,8 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
 };
 
 const FormField = ({ label, children }: { label: string, children: React.ReactNode }) => (
-  <div className="space-y-2">
-    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+  <div className="space-y-4">
+    <label className="block text-[18px] font-bold text-black uppercase tracking-widest ml-2">{label}</label>
     {children}
   </div>
 );
