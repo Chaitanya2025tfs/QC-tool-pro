@@ -51,17 +51,21 @@ const ChartBox = ({ title, icon, children }: { title: string, icon: string, chil
 );
 
 const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
+  const today = new Date().toISOString().split('T')[0];
   const [selectedAgent, setSelectedAgent] = useState('All Active Agents');
   const [selectedProject, setSelectedProject] = useState('All Operations');
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
 
   const filtered = useMemo(() => {
     return records.filter(r => {
       const matchAgent = selectedAgent === 'All Active Agents' || r.agentName === selectedAgent;
       const matchProject = selectedProject === 'All Operations' || r.projectName === selectedProject;
       const matchRole = user.role === 'AGENT' ? r.agentName === user.name : true;
-      return matchAgent && matchProject && matchRole;
+      const matchDate = r.date >= startDate && r.date <= endDate;
+      return matchAgent && matchProject && matchRole && matchDate;
     });
-  }, [records, selectedAgent, selectedProject, user]);
+  }, [records, selectedAgent, selectedProject, user, startDate, endDate]);
 
   const stats = useMemo(() => {
     if (filtered.length === 0) return { regAvg: 0, rewAvg: 0, projects: 0, agents: 0 };
@@ -165,14 +169,39 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
               <i className="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none"></i>
             </div>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[12px] font-bold text-slate-700">
-             <span className="w-18 text-center">12/20/2025</span>
-             <i className="bi bi-calendar3 text-slate-200"></i>
-             <span className="text-slate-200 font-normal">→</span>
-             <span className="w-18 text-center">12/26/2025</span>
-             <i className="bi bi-calendar3 text-slate-200"></i>
+          
+          {/* Active Date Range Picker Container */}
+          <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg shadow-inner">
+             <div className="flex items-center gap-2 group cursor-pointer relative">
+                <input 
+                  type="date" 
+                  value={startDate} 
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                />
+                <span className="text-[12px] font-black text-slate-700 min-w-[70px] text-center">
+                  {new Date(startDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                </span>
+                <i className="bi bi-calendar3 text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
+             </div>
+             
+             <span className="text-slate-300 font-normal select-none">→</span>
+             
+             <div className="flex items-center gap-2 group cursor-pointer relative">
+                <input 
+                  type="date" 
+                  value={endDate} 
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                />
+                <span className="text-[12px] font-black text-slate-700 min-w-[70px] text-center">
+                   {new Date(endDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                </span>
+                <i className="bi bi-calendar3 text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
+             </div>
           </div>
         </div>
+        
         <div className="space-y-1 w-full lg:w-56">
            <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">PROJECT FOCUS</span>
            <div className="relative">
