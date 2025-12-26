@@ -7,6 +7,32 @@ import { storage } from '../services/storage';
 const AdminPanel: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Verification & Modal States
+  const [verifyModal, setVerifyModal] = useState<{ 
+    isOpen: boolean; 
+    type: 'PASSWORD' | 'PHONE' | 'DELETE' | null; 
+    user: User | null; 
+    step: 'START' | 'CODE' | 'INPUT' | 'SUCCESS';
+    enteredCode: string;
+    newValue: string;
+    timer: number;
+    isExpired: boolean;
+    isSending: boolean;
+  }>({
+    isOpen: false,
+    type: null,
+    user: null,
+    step: 'START',
+    enteredCode: '',
+    newValue: '',
+    timer: 60,
+    isExpired: false,
+    isSending: false
+  });
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [newUser, setNewUser] = useState<Partial<User>>({
     name: '',
     role: 'AGENT',
@@ -15,32 +41,6 @@ const AdminPanel: React.FC = () => {
     password: '123456',
     phoneNumber: ''
   });
-
-  // Modals state
-  const [userToDelete, setUserToDelete] = useState<{ 
-    user: User, 
-    verificationCode: string, 
-    inputCode: string, 
-    isCodeSent: boolean,
-    timer: number 
-  } | null>(null);
-
-  const [passwordModal, setPasswordModal] = useState<{ 
-    user: User, 
-    newPass: string, 
-    verificationCode: string, 
-    inputCode: string, 
-    step: 'INIT' | 'VERIFY' | 'UPDATE',
-    isCodeSent: boolean,
-    timer: number
-  } | null>(null);
-
-  const [phoneModal, setPhoneModal] = useState<{ 
-    user: User, 
-    newPhone: string 
-  } | null>(null);
-
-  const timerRef = useRef<number | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -51,41 +51,25 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  // Timer logic for verification - only runs in 'CODE' step
+  useEffect(() => {
+    if (verifyModal.isOpen && verifyModal.step === 'CODE' && verifyModal.timer > 0) {
+      timerRef.current = setInterval(() => {
+        setVerifyModal(prev => ({
+          ...prev,
+          timer: prev.timer - 1,
+          isExpired: prev.timer <= 1
+        }));
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
-
-  // Timer logic
-  useEffect(() => {
-    if (passwordModal?.isCodeSent && passwordModal.timer > 0) {
-      const id = setInterval(() => {
-        setPasswordModal(prev => prev ? { ...prev, timer: prev.timer - 1 } : null);
-      }, 1000);
-      return () => clearInterval(id);
-    }
-  }, [passwordModal?.isCodeSent, passwordModal?.timer]);
-
-  useEffect(() => {
-    if (userToDelete?.isCodeSent && userToDelete.timer > 0) {
-      const id = setInterval(() => {
-        setUserToDelete(prev => prev ? { ...prev, timer: prev.timer - 1 } : null);
-      }, 1000);
-      return () => clearInterval(id);
-    }
-  }, [userToDelete?.isCodeSent, userToDelete?.timer]);
-
-  const generateEmail = (name: string) => {
-    return name.toLowerCase().replace(/\s+/g, '') + '@gmail.com';
-  };
-
-  const handleNameChange = (name: string) => {
-    setNewUser({
-      ...newUser,
-      name,
-      email: generateEmail(name)
-    });
-  };
+  }, [verifyModal.isOpen, verifyModal.step, verifyModal.timer]);
 
   const handleAddUser = async () => {
     if (!newUser.name || !newUser.email) return;
@@ -96,452 +80,391 @@ const AdminPanel: React.FC = () => {
     } as User;
     
     setLoading(true);
-    await storage.saveUser(user);
-    await fetchUsers();
-    setNewUser({ name: '', role: 'AGENT', project: PROJECTS[0], email: '', password: '123456', phoneNumber: '' });
-  };
-
-  const handleRoleChange = async (id: string, newRole: Role) => {
-    const user = users.find(u => u.id === id);
-    if (user) {
-      setLoading(true);
-      await storage.saveUser({ ...user, role: newRole });
+    try {
+      await storage.saveUser(user);
       await fetchUsers();
+      setNewUser({ 
+        name: '', 
+        role: 'AGENT', 
+        project: PROJECTS[0], 
+        email: '', 
+        password: '123456', 
+        phoneNumber: '' 
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Password Verification Logic
-  const openPasswordModal = (u: User) => {
-    setPasswordModal({ 
-      user: u, 
-      newPass: '', 
-      verificationCode: '', 
-      inputCode: '', 
-      step: 'VERIFY', 
-      isCodeSent: false, 
-      timer: 0 
+  const handleRoleChange = async (user: User, newRole: Role) => {
+    const updatedUser = { ...user, role: newRole };
+    await storage.saveUser(updatedUser);
+    await fetchUsers();
+  };
+
+  // Verification Logic
+  const openVerifyModal = (user: User, type: 'PASSWORD' | 'PHONE' | 'DELETE') => {
+    setVerifyModal({
+      isOpen: true,
+      type,
+      user,
+      step: 'START',
+      enteredCode: '',
+      newValue: '',
+      timer: 60,
+      isExpired: false,
+      isSending: false
     });
   };
 
-  const sendPassCode = () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`[SIMULATION] Password Reset Code for ${passwordModal?.user.email}: ${code}`);
-    setPasswordModal(prev => prev ? { ...prev, verificationCode: code, isCodeSent: true, timer: 60 } : null);
+  const sendCode = () => {
+    setVerifyModal(prev => ({ ...prev, isSending: true }));
+    // Simulate API delay for sending code
+    setTimeout(() => {
+      setVerifyModal(prev => ({ 
+        ...prev, 
+        isSending: false, 
+        step: 'CODE', 
+        timer: 60, 
+        isExpired: false 
+      }));
+    }, 1200);
   };
 
-  const handleVerifyPassCode = () => {
-    if (passwordModal && passwordModal.timer <= 0) {
-      alert("Verification code expired. Please send a new one.");
+  const verifyCode = () => {
+    if (verifyModal.isExpired) {
+      alert("Verification code has expired. Please request a new one.");
       return;
     }
-    if (passwordModal && passwordModal.inputCode === passwordModal.verificationCode) {
-      setPasswordModal({ ...passwordModal, step: 'UPDATE' });
+    // Simple 4-digit check for demo
+    if (verifyModal.enteredCode.length >= 4) {
+      setVerifyModal(prev => ({ ...prev, step: 'INPUT' }));
     } else {
-      alert("Invalid Verification Code!");
+      alert("Please enter a valid verification code.");
     }
   };
 
-  const handleUpdatePassword = async () => {
-    if (!passwordModal || !passwordModal.newPass) return;
+  const saveVerifiedChange = async () => {
+    if (!verifyModal.user) return;
+    
     setLoading(true);
-    await storage.saveUser({ ...passwordModal.user, password: passwordModal.newPass });
-    await fetchUsers();
-    setPasswordModal(null);
-  };
-
-  // Delete Verification Logic
-  const openDeleteModal = (u: User) => {
-    setUserToDelete({ user: u, verificationCode: '', inputCode: '', isCodeSent: false, timer: 0 });
-  };
-
-  const sendDeleteCode = () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`[SIMULATION] Delete Account Code for ${userToDelete?.user.phoneNumber}: ${code}`);
-    setUserToDelete(prev => prev ? { ...prev, verificationCode: code, isCodeSent: true, timer: 60 } : null);
-  };
-
-  const confirmDelete = async () => {
-    if (userToDelete && userToDelete.timer <= 0) {
-      alert("Verification code expired.");
-      return;
-    }
-    if (userToDelete && userToDelete.inputCode === userToDelete.verificationCode) {
-      setLoading(true);
-      await storage.deleteUser(userToDelete.user.id);
+    try {
+      if (verifyModal.type === 'DELETE') {
+        await storage.deleteUser(verifyModal.user.id);
+      } else {
+        if (!verifyModal.newValue) return;
+        const updatedUser = { ...verifyModal.user };
+        if (verifyModal.type === 'PASSWORD') updatedUser.password = verifyModal.newValue;
+        if (verifyModal.type === 'PHONE') updatedUser.phoneNumber = verifyModal.newValue;
+        await storage.saveUser(updatedUser);
+      }
+      
       await fetchUsers();
-      setUserToDelete(null);
-    } else {
-      alert("Invalid Verification Code!");
+      setVerifyModal(prev => ({ ...prev, step: 'SUCCESS' }));
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Phone Change Logic (No Verification Required)
-  const handleUpdatePhone = async () => {
-    if (!phoneModal || !phoneModal.newPhone) return;
-    setLoading(true);
-    await storage.saveUser({ ...phoneModal.user, phoneNumber: phoneModal.newPhone });
-    await fetchUsers();
-    setPhoneModal(null);
+  const closeVerification = () => {
+    setVerifyModal({ 
+      isOpen: false, type: null, user: null, step: 'START', 
+      enteredCode: '', newValue: '', timer: 60, isExpired: false, isSending: false 
+    });
   };
 
   return (
-    <div className="p-10 bg-[#f3f4f6] min-h-screen font-sans">
-      <div className="w-[90%] mx-auto space-y-10 relative">
+    <div className="flex flex-col gap-6 py-2 pb-20 font-sans">
+      {/* User Creation Section */}
+      <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+        <h2 className="text-[18px] font-black text-[#1a2138] uppercase tracking-tight">System Account Management</h2>
         
-        {loading && !users.length && (
-          <div className="py-20 flex flex-col items-center justify-center">
-            <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        )}
-
-        {/* 2x2 Form Section */}
-        <div className="bg-white p-12 rounded-[2.5rem] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] border border-slate-100 space-y-8">
-          <h2 className="text-[25px] font-black text-[#1e293b] tracking-tight mb-2 uppercase">Create Account Container</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {/* Row 1: Name and Role */}
-            <div>
-              <label className="block text-[15px] font-bold text-black uppercase tracking-widest mb-3 ml-1">Name</label>
-              <input 
-                type="text" 
-                value={newUser.name}
-                onChange={e => handleNameChange(e.target.value)}
-                className="w-full px-6 py-5 bg-[#f8fafc] border border-slate-200 rounded-2xl outline-none text-[18px] font-normal text-black focus:border-indigo-500 transition-all"
-                placeholder="Full Name"
-              />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
+              <input type="text" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} className="admin-input" placeholder="Name" />
             </div>
-            <div>
-              <label className="block text-[15px] font-bold text-black uppercase tracking-widest mb-3 ml-1">Role</label>
-              <select 
-                value={newUser.role}
-                onChange={e => setNewUser({...newUser, role: e.target.value as Role})}
-                className="w-full px-6 py-5 bg-white border border-slate-200 rounded-2xl outline-none text-[18px] font-normal text-black appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat pr-10"
-              >
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</label>
+              <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as Role})} className="admin-input cursor-pointer">
                 <option value="AGENT">Agent</option>
                 <option value="QC">QC Checker</option>
-                <option value="MANAGER">Manager/TL</option>
+                <option value="MANAGER">Manager / TL</option>
                 <option value="ADMIN">Admin</option>
               </select>
             </div>
-
-            {/* Row 2: Email and Password */}
-            <div>
-              <label className="block text-[15px] font-bold text-black uppercase tracking-widest mb-3 ml-1">Email</label>
-              <input 
-                type="email" 
-                value={newUser.email}
-                onChange={e => setNewUser({...newUser, email: e.target.value})}
-                className="w-full px-6 py-5 bg-[#f8fafc] border border-slate-200 rounded-2xl outline-none text-[18px] font-normal text-black focus:border-indigo-500 transition-all"
-                placeholder="Email Address"
-              />
-            </div>
-            <div>
-              <label className="block text-[15px] font-bold text-black uppercase tracking-widest mb-3 ml-1">Password</label>
-              <input 
-                type="text" 
-                value={newUser.password}
-                onChange={e => setNewUser({...newUser, password: e.target.value})}
-                className="w-full px-6 py-5 bg-[#f8fafc] border border-slate-200 rounded-2xl outline-none text-[18px] font-normal text-black focus:border-indigo-500 transition-all"
-                placeholder="123456"
-              />
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
+              <input type="text" value={newUser.phoneNumber} onChange={e => setNewUser({...newUser, phoneNumber: e.target.value})} className="admin-input" placeholder="9876543210" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 border-t border-slate-50 pt-8">
-            <div>
-              <label className="block text-[15px] font-bold text-black uppercase tracking-widest mb-3 ml-1">Phone Number</label>
-              <input 
-                type="text" 
-                value={newUser.phoneNumber}
-                onChange={e => setNewUser({...newUser, phoneNumber: e.target.value})}
-                className="w-full px-6 py-5 bg-[#f8fafc] border border-slate-200 rounded-2xl outline-none text-[18px] font-normal text-black focus:border-indigo-500 transition-all"
-                placeholder="+91 00000 00000"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Email</label>
+              <input type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} className="admin-input" placeholder="Email" />
             </div>
-            <div>
-              <label className="block text-[15px] font-bold text-black uppercase tracking-widest mb-3 ml-1">Project</label>
-              <div className="flex gap-4">
-                <select 
-                  value={newUser.project}
-                  onChange={e => setNewUser({...newUser, project: e.target.value})}
-                  className="flex-1 px-6 py-5 bg-white border border-slate-200 rounded-2xl outline-none text-[18px] font-normal text-black appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat pr-10"
-                >
-                  {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <button 
-                  onClick={handleAddUser}
-                  disabled={loading || !newUser.name}
-                  className="px-10 py-5 bg-[#2563eb] text-white font-black uppercase tracking-[0.2em] text-[17px] rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50"
-                >
-                  ADD USER
-                </button>
-              </div>
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Initial Password</label>
+              <input type="text" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="admin-input" placeholder="123456" />
             </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-[0_4px_25px_-5px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden">
-          <div className="px-10 py-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
-             <h3 className="text-[18px] font-black text-black uppercase tracking-tight">Access Repository</h3>
-             <span className="text-[14px] font-bold text-slate-400 uppercase tracking-widest">{users.length} Active Accounts</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[18px]">
-              <thead>
-                <tr className="text-left bg-white border-b border-slate-50">
-                  <th className="px-10 py-7 font-bold text-black uppercase tracking-widest text-[14px]">User Identity</th>
-                  <th className="px-10 py-7 font-bold text-black uppercase tracking-widest text-[14px]">System Role</th>
-                  <th className="px-10 py-7 font-bold text-black uppercase tracking-widest text-[14px]">Campaign</th>
-                  <th className="px-10 py-7 font-bold text-black uppercase tracking-widest text-[14px] text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50/30 transition-colors group">
-                    <td className="px-10 py-7">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-[#1e293b]">{u.name}</span>
-                        <span className="text-[14px] text-slate-400 font-normal lowercase">{u.email} • {u.phoneNumber || 'No Phone'}</span>
-                      </div>
-                    </td>
-                    <td className="px-10 py-7">
-                      <select 
-                        value={u.role}
-                        onChange={e => handleRoleChange(u.id, e.target.value as Role)}
-                        disabled={loading}
-                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[16px] font-medium text-black outline-none focus:border-blue-500 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:8px] bg-[right_1rem_center] bg-no-repeat pr-8 disabled:opacity-50"
-                      >
-                        <option value="AGENT">Agent</option>
-                        <option value="QC">QC Checker</option>
-                        <option value="MANAGER">Manager/TL</option>
-                        <option value="ADMIN">Admin</option>
-                      </select>
-                    </td>
-                    <td className="px-10 py-7">
-                       <span className="px-4 py-1.5 rounded-full bg-slate-100 text-[14px] font-bold text-slate-600 uppercase tracking-tighter">
-                         {u.project || 'Global'}
-                       </span>
-                    </td>
-                    <td className="px-10 py-7 text-right">
-                      <div className="flex items-center justify-end gap-3 transition-opacity">
-                        <button 
-                          onClick={() => openPasswordModal(u)}
-                          className="px-4 py-2.5 bg-[#4f46e5] text-white rounded-xl text-[14px] font-black uppercase hover:bg-indigo-700 transition-all shadow-md active:scale-95"
-                        >
-                          Change Password
-                        </button>
-                        <button 
-                          onClick={() => setPhoneModal({ user: u, newPhone: u.phoneNumber || '' })}
-                          className="w-11 h-11 flex items-center justify-center rounded-xl bg-indigo-50 text-[#4f46e5] hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-95"
-                          title="Change Phone Number"
-                        >
-                          <i className="bi bi-telephone-plus-fill text-[20px]"></i>
-                        </button>
-                        <button 
-                          onClick={() => openDeleteModal(u)}
-                          disabled={loading}
-                          className="w-11 h-11 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 active:scale-95"
-                          title="Remove User"
-                        >
-                          <i className="bi bi-trash3-fill text-[20px]"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div className="md:col-span-8 space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Campaign</label>
+              <select value={newUser.project} onChange={e => setNewUser({...newUser, project: e.target.value})} className="admin-input cursor-pointer">
+                {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="md:col-span-4">
+              <button onClick={handleAddUser} disabled={loading} className="w-full py-3 bg-[#4f46e5] text-white rounded-xl font-black uppercase tracking-[0.2em] text-[12px] shadow-lg hover:bg-indigo-700 transition-all active:scale-[0.98]">
+                {loading ? 'Processing...' : 'Register User'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Password Verification Modal Flow */}
-      {passwordModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 flex flex-col space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[22px] font-black text-black uppercase tracking-tight">
-                  {passwordModal.step === 'VERIFY' ? 'Security Check' : 'Update Credentials'}
-                </h3>
-                <button onClick={() => setPasswordModal(null)} className="text-slate-400 hover:text-black"><i className="bi bi-x-lg"></i></button>
-              </div>
-
-              {passwordModal.step === 'VERIFY' && (
-                <>
-                  <p className="text-[16px] text-slate-500 font-medium leading-relaxed">
-                    Verify account for <span className="font-bold text-black">{passwordModal.user.name}</span>. Codes are sent to registered channels.
-                  </p>
-
-                  {!passwordModal.isCodeSent ? (
-                    <button 
-                      onClick={sendPassCode}
-                      className="w-full py-5 bg-[#4f46e5] text-white rounded-2xl font-black uppercase text-[16px] shadow-lg hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center gap-3"
-                    >
-                      <i className="bi bi-send-fill"></i> Send Verification Code
-                    </button>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[14px] font-bold text-black uppercase tracking-widest">Enter Code</label>
-                        <span className={`text-[14px] font-bold ${passwordModal.timer > 10 ? 'text-indigo-600' : 'text-rose-500'}`}>
-                          Expires in: {passwordModal.timer}s
-                        </span>
-                      </div>
-                      <input 
-                        type="text" 
-                        maxLength={6}
-                        value={passwordModal.inputCode}
-                        onChange={e => setPasswordModal({...passwordModal, inputCode: e.target.value})}
-                        className="w-full px-5 py-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-[28px] font-black text-center tracking-[0.5em] focus:border-indigo-500"
-                        placeholder="000000"
-                        autoFocus
-                      />
-                      <div className="flex flex-col gap-3">
-                        <button 
-                          onClick={handleVerifyPassCode} 
-                          className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[16px] shadow-xl shadow-indigo-600/20 active:scale-95 transition-all"
-                        >
-                          Verify Account
-                        </button>
-                        <button 
-                          onClick={sendPassCode}
-                          className="text-[14px] font-bold text-slate-400 uppercase tracking-widest hover:text-black transition-colors"
-                        >
-                          Didn't get code? Resend
-                        </button>
-                      </div>
+      {/* User Repository Table */}
+      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-8 py-5 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
+           <h3 className="text-[14px] font-black text-[#1a2138] uppercase tracking-tight">User Repository</h3>
+           <span className="text-[10px] font-black text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-100">{users.length} Active Accounts</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50/20 border-b border-slate-50">
+                <th className="px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">User Identity</th>
+                <th className="px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">System Role</th>
+                <th className="px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Contact</th>
+                <th className="px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Campaign</th>
+                <th className="px-8 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {users.map(u => (
+                <tr key={u.id} className="hover:bg-slate-50/30 transition-colors">
+                  <td className="px-8 py-5">
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-bold text-[#1a2138]">{u.name}</span>
+                      <span className="text-[12px] text-slate-400 font-medium">{u.email}</span>
                     </div>
-                  )}
-                </>
-              )}
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="relative group max-w-fit">
+                      <select 
+                        value={u.role} 
+                        onChange={(e) => handleRoleChange(u, e.target.value as Role)}
+                        className={`appearance-none px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase cursor-pointer outline-none border border-transparent hover:border-slate-200 transition-all ${
+                          u.role === 'ADMIN' ? 'bg-rose-50 text-rose-500' : 
+                          u.role === 'MANAGER' ? 'bg-indigo-50 text-indigo-500' :
+                          u.role === 'QC' ? 'bg-amber-50 text-amber-500' : 'bg-slate-50 text-slate-500'
+                        }`}
+                      >
+                        <option value="ADMIN">ADMIN</option>
+                        <option value="MANAGER">MANAGER / TL</option>
+                        <option value="QC">QC</option>
+                        <option value="AGENT">AGENT</option>
+                      </select>
+                      <i className="bi bi-chevron-down absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 scale-75"></i>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-[13px] font-bold text-slate-400">
+                    {u.phoneNumber || '--'}
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter bg-indigo-50/50 px-2.5 py-1 rounded-md">
+                      {u.project || 'GLOBAL'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <button 
+                        onClick={() => openVerifyModal(u, 'PASSWORD')}
+                        className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shadow-sm border border-slate-100"
+                        title="Change Password"
+                      >
+                        <i className="bi bi-key-fill text-[16px]"></i>
+                      </button>
+                      <button 
+                        onClick={() => openVerifyModal(u, 'PHONE')}
+                        className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all shadow-sm border border-slate-100"
+                        title="Change Mobile Number"
+                      >
+                        <i className="bi bi-telephone-plus-fill text-[16px]"></i>
+                      </button>
+                      <button 
+                        onClick={() => openVerifyModal(u, 'DELETE')}
+                        className="w-9 h-9 flex items-center justify-center bg-white text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all shadow-sm border border-slate-200 border-2"
+                        title="Remove People"
+                      >
+                        <i className="bi bi-person-x-fill text-[18px]"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-              {passwordModal.step === 'UPDATE' && (
-                <>
-                  <p className="text-[16px] text-slate-500 font-medium">Identity verified. Please set the new access code for <span className="font-bold text-black">{passwordModal.user.name}</span>.</p>
-                  <div className="space-y-2">
-                    <label className="text-[14px] font-bold text-black uppercase tracking-widest ml-1">New Password</label>
+      {/* Verification Modal System */}
+      {verifyModal.isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1a2138]/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 p-10 relative">
+            
+            {/* Close Button */}
+            <button 
+              onClick={closeVerification} 
+              className="absolute top-8 right-8 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-50 text-slate-300 hover:text-slate-500 transition-all"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+
+            {/* Step 1: Send Code */}
+            {verifyModal.step === 'START' && (
+              <div className="text-center space-y-8">
+                <div className={`w-20 h-20 ${verifyModal.type === 'DELETE' ? 'bg-rose-50 text-rose-500' : 'bg-indigo-50 text-indigo-600'} rounded-[2rem] flex items-center justify-center mx-auto text-[32px] shadow-sm`}>
+                   <i className={`bi ${verifyModal.type === 'PASSWORD' ? 'bi-shield-lock-fill' : verifyModal.type === 'PHONE' ? 'bi-phone-vibrate-fill' : 'bi-person-x-fill'}`}></i>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-[20px] font-black text-[#1a2138] uppercase tracking-tight">Security Check</h3>
+                  <p className="text-[13px] text-slate-400 font-medium leading-relaxed">
+                    Verify permission for <span className="font-bold text-black">{verifyModal.user?.name}</span> by sending a 6-digit code.
+                  </p>
+                </div>
+                <button 
+                  onClick={sendCode} 
+                  disabled={verifyModal.isSending}
+                  className={`w-full py-4 ${verifyModal.type === 'DELETE' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' : 'bg-[#4f46e5] hover:bg-indigo-700 shadow-indigo-600/20'} text-white rounded-2xl font-black uppercase tracking-widest text-[13px] shadow-xl transition-all active:scale-[0.98] disabled:opacity-50`}
+                >
+                  {verifyModal.isSending ? 'Generating Code...' : 'Send Verification Code'}
+                </button>
+              </div>
+            )}
+
+            {/* Step 2: OTP Verification */}
+            {verifyModal.step === 'CODE' && (
+              <div className="text-center space-y-8">
+                <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto text-[32px] shadow-sm">
+                  <i className="bi bi-shield-fill-check"></i>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-[20px] font-black text-[#1a2138] uppercase tracking-tight">OTP Verification</h3>
+                  <p className="text-[13px] text-slate-400 font-medium leading-relaxed px-4">
+                    A verification code has been sent to <br/>
+                    <span className="font-bold text-indigo-500">{verifyModal.user?.phoneNumber || 'registered number'}</span>
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="relative group">
                     <input 
                       type="text" 
-                      value={passwordModal.newPass}
-                      onChange={e => setPasswordModal({...passwordModal, newPass: e.target.value})}
-                      className="w-full px-5 py-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-[21px] font-normal"
-                      placeholder="Enter new code..."
+                      maxLength={6}
                       autoFocus
+                      value={verifyModal.enteredCode}
+                      onChange={e => setVerifyModal({ ...verifyModal, enteredCode: e.target.value.replace(/\D/g, '') })}
+                      className="w-full text-center py-5 bg-slate-50 border border-slate-100 rounded-2xl text-[28px] font-black tracking-[0.5em] outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 transition-all text-slate-400"
+                      placeholder="000000"
                     />
                   </div>
-                  <div className="flex gap-4 pt-4">
-                    <button onClick={() => setPasswordModal(null)} className="flex-1 py-5 bg-slate-100 text-black rounded-2xl font-black uppercase text-[15px]">Cancel</button>
-                    <button 
-                      onClick={handleUpdatePassword} 
-                      disabled={!passwordModal.newPass}
-                      className="flex-1 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[15px] shadow-xl shadow-indigo-600/20 disabled:opacity-50 active:scale-95 transition-all"
-                    >
-                      Update
-                    </button>
+                  
+                  <div className="flex items-center justify-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${verifyModal.isExpired ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}></div>
+                    <span className={`text-[12px] font-bold ${verifyModal.isExpired ? 'text-rose-500' : 'text-slate-400'}`}>
+                      {verifyModal.isExpired ? 'Code Expired' : `Valid for ${verifyModal.timer}s`}
+                    </span>
+                    {verifyModal.isExpired && (
+                      <button onClick={sendCode} className="ml-2 text-[11px] font-black text-indigo-600 uppercase tracking-widest hover:underline">Resend</button>
+                    )}
                   </div>
-                </>
-              )}
-           </div>
-        </div>
-      )}
-
-      {/* Phone Change Modal (No Verification Required) */}
-      {phoneModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 flex flex-col space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[22px] font-black text-black uppercase tracking-tight">Change Mobile</h3>
-                <button onClick={() => setPhoneModal(null)} className="text-slate-400 hover:text-black"><i className="bi bi-x-lg"></i></button>
-              </div>
-              <p className="text-[16px] text-slate-500">Updating contact for <span className="font-bold text-black">{phoneModal.user.name}</span>.</p>
-              
-              <div className="space-y-2">
-                <label className="text-[14px] font-bold text-black uppercase tracking-widest ml-1">New Mobile Number</label>
-                <input 
-                  type="text" 
-                  value={phoneModal.newPhone}
-                  onChange={e => setPhoneModal({...phoneModal, newPhone: e.target.value})}
-                  className="w-full px-5 py-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-[21px] font-normal"
-                  placeholder="+91 00000 00000"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                 <button onClick={() => setPhoneModal(null)} className="flex-1 py-5 bg-slate-100 text-black rounded-2xl font-black uppercase text-[15px]">Cancel</button>
-                 <button 
-                  onClick={handleUpdatePhone} 
-                  disabled={!phoneModal.newPhone}
-                  className="flex-1 py-5 bg-[#4f46e5] text-white rounded-2xl font-black uppercase text-[15px] shadow-xl shadow-indigo-600/20 active:scale-95 transition-all"
-                 >
-                   Save Mobile
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* Delete Verification Modal */}
-      {userToDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 flex flex-col items-center text-center">
-            <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mb-6">
-              <i className="bi bi-person-x-fill text-[41px]"></i>
-            </div>
-            <h3 className="text-[25px] font-black text-[#1e293b] mb-2">Delete Agent Account?</h3>
-            <p className="text-[16px] text-slate-500 font-medium mb-8 leading-relaxed">
-              Verification is required to remove <span className="font-black text-black">{userToDelete.user.name}</span>. Code will be sent to their registered mobile.
-            </p>
-            
-            {!userToDelete.isCodeSent ? (
-              <div className="flex w-full gap-5">
-                <button 
-                  onClick={() => setUserToDelete(null)}
-                  className="flex-1 py-5 bg-slate-100 text-[#1e293b] rounded-2xl font-black uppercase tracking-widest text-[16px] hover:bg-slate-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={sendDeleteCode}
-                  className="flex-1 py-5 bg-rose-500 text-white rounded-2xl font-black uppercase tracking-widest text-[16px] hover:bg-rose-600 shadow-xl shadow-rose-500/30 transition-all"
-                >
-                  Send Code
-                </button>
-              </div>
-            ) : (
-              <div className="w-full space-y-6">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-[14px] font-bold text-black uppercase tracking-widest">Verification Code</label>
-                  <span className={`text-[14px] font-bold ${userToDelete.timer > 10 ? 'text-rose-500' : 'text-slate-400'}`}>
-                    Time: {userToDelete.timer}s
-                  </span>
                 </div>
-                <input 
-                  type="text" 
-                  maxLength={6}
-                  value={userToDelete.inputCode}
-                  onChange={e => setUserToDelete({...userToDelete, inputCode: e.target.value})}
-                  className="w-full px-5 py-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-[28px] font-black text-center tracking-[0.5em] focus:border-rose-500"
-                  placeholder="000000"
-                />
-                <div className="flex flex-col gap-4">
+
+                <button 
+                  onClick={verifyCode} 
+                  disabled={verifyModal.isExpired || verifyModal.enteredCode.length < 4}
+                  className="w-full py-4 bg-[#8b5cf6]/60 text-white rounded-2xl font-black uppercase tracking-widest text-[13px] shadow-xl hover:bg-[#8b5cf6] transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  Verify Code
+                </button>
+              </div>
+            )}
+
+            {/* Step 3: Final Input or Delete Confirmation */}
+            {verifyModal.step === 'INPUT' && (
+              <div className="text-center space-y-8">
+                <div className={`w-20 h-20 ${verifyModal.type === 'DELETE' ? 'bg-rose-50 text-rose-500' : verifyModal.type === 'PASSWORD' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'} rounded-[2rem] flex items-center justify-center mx-auto text-[32px] shadow-sm`}>
+                  <i className={`bi ${verifyModal.type === 'PASSWORD' ? 'bi-key-fill' : verifyModal.type === 'PHONE' ? 'bi-phone-fill' : 'bi-person-x-fill'}`}></i>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-[20px] font-black text-[#1a2138] uppercase tracking-tight">Identity Verified</h3>
+                  <p className="text-[13px] text-slate-400 font-medium leading-relaxed">
+                    {verifyModal.type === 'DELETE' 
+                      ? "Are you absolutely sure you want to remove this employee record permanently?"
+                      : `Please enter the new ${verifyModal.type?.toLowerCase()} for`
+                    } <br/>
+                    <span className="font-bold text-black">{verifyModal.user?.name}</span>
+                  </p>
+                </div>
+
+                {verifyModal.type !== 'DELETE' && (
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New {verifyModal.type}</label>
+                    <input 
+                      type={verifyModal.type === 'PASSWORD' ? 'text' : 'tel'} 
+                      value={verifyModal.newValue}
+                      onChange={e => setVerifyModal({ ...verifyModal, newValue: e.target.value })}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[16px] font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 transition-all shadow-inner"
+                      placeholder={`Enter new ${verifyModal.type === 'PASSWORD' ? 'password' : 'phone number'}...`}
+                    />
+                  </div>
+                )}
+
+                <button 
+                  onClick={saveVerifiedChange} 
+                  disabled={verifyModal.type !== 'DELETE' && !verifyModal.newValue}
+                  className={`w-full py-4 ${
+                    verifyModal.type === 'DELETE' ? 'bg-rose-500 shadow-rose-500/20' : 
+                    verifyModal.type === 'PASSWORD' ? 'bg-[#4f46e5] shadow-indigo-500/20' : 'bg-[#10b981] shadow-emerald-500/20'
+                  } text-white rounded-2xl font-black uppercase tracking-widest text-[13px] shadow-xl hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 border border-black/10`}
+                >
+                  {verifyModal.type === 'DELETE' ? 'Remove Employee' : 'Update Account'}
+                </button>
+              </div>
+            )}
+
+            {/* Step 4: Success Message */}
+            {verifyModal.step === 'SUCCESS' && (
+              <div className="text-center space-y-8 animate-in zoom-in-95 duration-300">
+                <div className={`w-24 h-24 ${verifyModal.type === 'DELETE' ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-emerald-50 text-emerald-500 border-emerald-100'} rounded-full flex items-center justify-center mx-auto text-[45px] shadow-md border`}>
+                  <i className={`bi ${verifyModal.type === 'DELETE' ? 'bi-person-x-fill' : 'bi-check-circle-fill'}`}></i>
+                </div>
+                
+                <div className="space-y-3">
+                  <h3 className="text-[24px] font-black text-[#1a2138] uppercase tracking-tight">
+                    {verifyModal.type === 'DELETE' ? 'Deleted!' : 'Success!'}
+                  </h3>
+                  <p className="text-[14px] text-slate-500 font-medium leading-relaxed">
+                    {verifyModal.type === 'DELETE' 
+                      ? "The employee record has been permanently removed from the system."
+                      : `The ${verifyModal.type === 'PASSWORD' ? 'password' : 'mobile number'} has been updated successfully.`
+                    }
+                  </p>
+                </div>
+
+                <div className="pt-4">
                   <button 
-                    onClick={confirmDelete}
-                    className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[16px] shadow-xl shadow-rose-500/30 active:scale-95 transition-all"
+                    onClick={closeVerification}
+                    className="w-full py-4 bg-[#1a2138] text-white rounded-2xl font-black uppercase tracking-widest text-[12px] shadow-xl hover:bg-black transition-all active:scale-[0.98]"
                   >
-                    Confirm Termination
-                  </button>
-                  <button 
-                    onClick={sendDeleteCode}
-                    className="text-[14px] font-bold text-slate-400 uppercase tracking-widest hover:text-black"
-                  >
-                    Resend Code
-                  </button>
-                  <button 
-                    onClick={() => setUserToDelete(null)}
-                    className="text-[14px] font-bold text-rose-500 uppercase underline"
-                  >
-                    Abort Process
+                    Finish & Close
                   </button>
                 </div>
               </div>
@@ -549,6 +472,25 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
       )}
+
+      <style>{`
+        .admin-input {
+          width: 100%;
+          padding: 0.65rem 1rem;
+          background-color: #f8fafc;
+          border: 1px solid #f1f5f9;
+          border-radius: 0.75rem;
+          font-size: 14px;
+          font-weight: 500;
+          outline: none;
+          transition: all 0.2s;
+        }
+        .admin-input:focus {
+          background-color: white;
+          border-color: #e2e8f0;
+          box-shadow: 0 4px 12px -2px rgba(0,0,0,0.02);
+        }
+      `}</style>
     </div>
   );
 };

@@ -20,9 +20,12 @@ const App: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const fetchedRecords = await storage.getRecords();
-    setRecords(fetchedRecords);
-    setLoading(false);
+    try {
+      const fetchedRecords = await storage.getRecords();
+      setRecords(fetchedRecords);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -40,17 +43,24 @@ const App: React.FC = () => {
 
   const saveRecord = async (record: QCRecord) => {
     setLoading(true);
-    await storage.saveRecord(record);
-    await loadData();
-    setEditingRecord(undefined);
-    // Show the success report confirmation immediately after saving
-    setShowSuccessReport(record);
+    try {
+      await storage.saveRecord(record);
+      await loadData();
+      setEditingRecord(undefined);
+      setShowSuccessReport(record);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteRecord = async (id: string) => {
     setLoading(true);
-    await storage.deleteRecord(id);
-    await loadData();
+    try {
+      await storage.deleteRecord(id);
+      await loadData();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startEdit = (record: QCRecord) => {
@@ -63,7 +73,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex bg-slate-50 min-h-screen">
+    <div className="flex bg-[#f3f4f6] min-h-screen">
       <Sidebar 
         user={user} 
         activeTab={activeTab} 
@@ -71,37 +81,44 @@ const App: React.FC = () => {
         onLogout={handleLogout} 
       />
       
-      <main className="flex-1 ml-64 min-h-screen transition-all relative">
+      <main className="ml-[15%] w-[85%] min-h-screen transition-all relative py-4 px-6 overflow-x-hidden">
         {loading && (
-          <div className="absolute inset-0 z-50 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-[10px] font-normal text-indigo-500 uppercase tracking-widest">Syncing with DB...</span>
+          <div className="fixed inset-0 z-[150] bg-white/40 backdrop-blur-md flex items-center justify-center">
+            <div className="bg-white/90 p-8 rounded-[4px] shadow-2xl border border-slate-300 flex flex-col items-center gap-6">
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 border-[4px] border-indigo-100 rounded-full"></div>
+                <div className="absolute inset-0 border-[4px] border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[17px] font-black text-black uppercase tracking-widest">Processing</span>
+              </div>
             </div>
           </div>
         )}
         
-        {activeTab === 'dashboard' && <Dashboard user={user} records={records} />}
-        {activeTab === 'qc-form' && (
-          <QCForm 
-            user={user} 
-            onSave={saveRecord} 
-            editRecord={editingRecord}
-            onDiscard={() => {
-              setEditingRecord(undefined);
-              setActiveTab('report-table');
-            }}
-          />
-        )}
-        {activeTab === 'report-table' && (
-          <ReportTable 
-            user={user} 
-            records={records} 
-            onEdit={startEdit} 
-            onDelete={deleteRecord} 
-          />
-        )}
-        {activeTab === 'admin-panel' && user.role === 'ADMIN' && <AdminPanel />}
+        <div className="w-full transition-all duration-300">
+          {activeTab === 'dashboard' && <Dashboard user={user} records={records} />}
+          {activeTab === 'qc-form' && (
+            <QCForm 
+              user={user} 
+              onSave={saveRecord} 
+              editRecord={editingRecord}
+              onDiscard={() => {
+                setEditingRecord(undefined);
+                setActiveTab('report-table');
+              }}
+            />
+          )}
+          {activeTab === 'report-table' && (
+            <ReportTable 
+              user={user} 
+              records={records} 
+              onEdit={startEdit} 
+              onDelete={deleteRecord} 
+            />
+          )}
+          {activeTab === 'admin-panel' && user.role === 'ADMIN' && <AdminPanel />}
+        </div>
 
         {showSuccessReport && (
           <SuccessReport 

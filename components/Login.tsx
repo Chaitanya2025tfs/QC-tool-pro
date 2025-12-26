@@ -26,7 +26,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     fetchUsers();
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -74,7 +73,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return;
     }
 
-    // Use stored user password if exists, otherwise fallback to default
     const correctPassword = user.password || '123456';
     if (password !== correctPassword) {
       setError('Incorrect password.');
@@ -86,60 +84,60 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] flex flex-col font-sans">
-      <div className="w-full h-12 bg-white border-b border-gray-200 flex items-center justify-center relative shadow-sm">
-        <span className="text-[18px] font-normal text-black">QC Evaluation Tool Pro</span>
-        <div className="absolute right-4 flex items-center gap-4 text-[16px] text-black font-bold">
-           <button className="flex items-center gap-1 hover:text-black transition-colors">
-             <i className="bi bi-display"></i> Device
-           </button>
-           <button className="hover:text-black transition-colors">
-             <i className="bi bi-arrow-clockwise"></i>
-           </button>
-           <button className="hover:text-black transition-colors">
-             <i className="bi bi-arrows-angle-expand"></i>
-           </button>
+      {/* Top Utility Bar - Matches density of previous UI fixes */}
+      <div className="w-full h-10 bg-white border-b border-gray-200 flex items-center justify-center relative shadow-sm">
+        <span className="text-[14px] font-bold text-slate-500 uppercase tracking-widest">QC Evaluation Tool Pro</span>
+        <div className="absolute right-4 flex items-center gap-3 text-[14px] text-slate-400">
+           <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
+             <i className="bi bi-display text-[14px]"></i>
+             <span className="text-[11px] font-black uppercase tracking-tighter">Device</span>
+           </div>
+           <i className="bi bi-arrow-clockwise cursor-pointer hover:text-black transition-colors"></i>
+           <i className="bi bi-arrows-angle-expand cursor-pointer hover:text-black transition-colors"></i>
         </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-[540px] bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-14 flex flex-col items-center">
+        {/* Login Card - Scaled down to be more compact (Approx 420px wide) */}
+        <div className="w-full max-w-[420px] bg-white rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.15)] p-10 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500 border border-white">
           
-          <div className="w-20 h-20 bg-[#4f46e5] rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8">
-            <i className="bi bi-shield-lock-fill text-white text-[40px]"></i>
+          <div className="w-16 h-16 bg-[#4f46e5] rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6 transition-transform hover:scale-110 duration-500">
+            <i className="bi bi-shield-lock-fill text-white text-[32px]"></i>
           </div>
 
-          <h1 className="text-[30px] font-black text-[#1a2138] mb-2 tracking-tight">System Login</h1>
-          <p className="text-[18px] text-black font-bold mb-10 text-center">Enter your credentials to access the evaluator</p>
+          <h1 className="text-[24px] font-black text-[#1a2138] mb-1 tracking-tight uppercase">System Login</h1>
+          <p className="text-[13px] text-slate-400 font-bold mb-8 text-center uppercase tracking-widest">Secure Evaluator Access</p>
           
-          <form onSubmit={handleLogin} className="w-full space-y-8 relative">
-            {/* Email Field with Autocomplete */}
-            <div className="space-y-3 relative" ref={dropdownRef}>
-              <label className="block text-[16px] font-bold text-black uppercase tracking-widest ml-1">Work Email</label>
+          <form onSubmit={handleLogin} className="w-full space-y-6 relative">
+            
+            {/* Email Field */}
+            <div className="space-y-2 relative" ref={dropdownRef}>
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Email</label>
               <div className="relative">
-                <i className="bi bi-envelope absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]"></i>
+                <i className="bi bi-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-[16px]"></i>
                 <input 
                   type="text"
                   placeholder="name@gmail.com"
                   value={emailQuery}
                   onChange={handleEmailChange}
                   onFocus={() => emailQuery && setShowDropdown(true)}
-                  className="w-full pl-14 pr-5 py-5 bg-[#f8fafc] border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-[21px] font-normal text-black"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/30 focus:bg-white outline-none transition-all text-[15px] font-medium text-black"
                   required
                 />
               </div>
 
               {/* Autocomplete Dropdown */}
               {showDropdown && filteredUsers.length > 0 && (
-                <div className="absolute z-50 top-full left-0 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl max-h-[250px] overflow-y-auto custom-scrollbar overflow-hidden">
+                <div className="absolute z-50 top-full left-0 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl max-h-[200px] overflow-y-auto custom-scrollbar overflow-hidden">
                   {filteredUsers.map(u => (
                     <button
                       key={u.id}
                       type="button"
                       onClick={() => selectUser(u)}
-                      className="w-full px-6 py-4 text-left hover:bg-indigo-50 transition-colors flex flex-col group border-b border-slate-50 last:border-0"
+                      className="w-full px-5 py-3 text-left hover:bg-indigo-50 transition-colors flex flex-col group border-b border-slate-50 last:border-0"
                     >
-                      <span className="text-[18px] font-bold text-black group-hover:text-indigo-600">{u.name}</span>
-                      <span className="text-[15px] font-normal text-slate-500">{u.email || generateEmail(u.name)}</span>
+                      <span className="text-[14px] font-bold text-black group-hover:text-indigo-600">{u.name}</span>
+                      <span className="text-[12px] font-medium text-slate-400">{u.email || generateEmail(u.name)}</span>
                     </button>
                   ))}
                 </div>
@@ -147,10 +145,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
 
             {/* Password Field */}
-            <div className="space-y-3">
-              <label className="block text-[16px] font-bold text-black uppercase tracking-widest ml-1">Password</label>
+            <div className="space-y-2">
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
               <div className="relative">
-                <i className="bi bi-key absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]"></i>
+                <i className="bi bi-key absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-[16px]"></i>
                 <input 
                   type="password"
                   placeholder="••••••••"
@@ -159,35 +157,35 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     setPassword(e.target.value);
                     setError('');
                   }}
-                  className="w-full pl-14 pr-5 py-5 bg-[#f8fafc] border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-[21px] font-normal text-black"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/30 focus:bg-white outline-none transition-all text-[15px] font-medium text-black"
                   required
                 />
               </div>
             </div>
 
             {error && (
-              <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center gap-3 text-rose-600 animate-in fade-in slide-in-from-top-2">
-                <i className="bi bi-exclamation-circle-fill"></i>
-                <span className="text-[16px] font-bold">{error}</span>
+              <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-center gap-2 text-rose-500 animate-in fade-in slide-in-from-top-2">
+                <i className="bi bi-exclamation-circle-fill text-[14px]"></i>
+                <span className="text-[13px] font-bold">{error}</span>
               </div>
             )}
 
             <button 
               type="submit"
               disabled={loading}
-              className={`w-full py-5 text-white rounded-2xl font-normal uppercase tracking-[0.3em] text-[19px] shadow-xl transition-all active:scale-[0.98] ${
+              className={`w-full py-4 text-white rounded-xl font-black uppercase tracking-[0.2em] text-[14px] shadow-lg transition-all active:scale-[0.97] ${
                 !loading
-                ? 'bg-[#111827] hover:bg-[#1f2937] shadow-indigo-500/10' 
+                ? 'bg-[#1E2A56] hover:bg-black shadow-indigo-900/10' 
                 : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
               {loading ? 'Authenticating...' : 'Sign In'}
             </button>
 
-            <div className="pt-6 border-t border-slate-100 text-center">
-              <p className="text-[14px] text-slate-400 font-medium">
-                Need to change your password? <br/>
-                <span className="text-black font-bold">Contact Admin Team</span> for support.
+            <div className="pt-6 border-t border-slate-50 text-center">
+              <p className="text-[12px] text-slate-400 font-medium">
+                Locked out of your account? <br/>
+                <span className="text-indigo-600 font-black uppercase tracking-tighter cursor-pointer hover:underline">Request Reset from IT</span>
               </p>
             </div>
           </form>

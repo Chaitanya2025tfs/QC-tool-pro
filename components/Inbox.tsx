@@ -73,7 +73,7 @@ const Inbox: React.FC<InboxProps> = ({ user, records }) => {
             <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col gap-4">
                <div className="flex items-center justify-between border-b border-slate-50 pb-4">
                   <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black text-[20px]">PO</div>
+                     <div className="w-12 h-12 bg-[#1E2A56] rounded-full flex items-center justify-center text-white font-black text-[20px]">PO</div>
                      <div className="flex flex-col">
                         <span className="text-[18px] font-black text-black">Portal Owner <span className="text-slate-400 font-normal ml-2 text-[15px]">&lt;evaluator-system@portal.com&gt;</span></span>
                         <span className="text-[15px] text-slate-500 font-medium">To: {user.name} &lt;{user.email}&gt;</span>
@@ -87,7 +87,7 @@ const Inbox: React.FC<InboxProps> = ({ user, records }) => {
             </div>
 
             {/* Stylized Report Content (Matches reference Image) */}
-            <div className="bg-white rounded-[2.5rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] overflow-hidden border border-slate-100 flex flex-col p-12 relative border-t-[8px] border-t-indigo-600">
+            <div className="bg-white rounded-[2.5rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] overflow-hidden border border-slate-100 flex flex-col p-12 relative border-t-[8px] border-t-[#1E2A56]">
               {/* Header Message */}
               <div className="mb-10">
                 <p className="text-[21px] text-slate-600 leading-snug font-medium">
@@ -99,7 +99,7 @@ const Inbox: React.FC<InboxProps> = ({ user, records }) => {
               {/* Score Card Section */}
               <div className="bg-[#f8fbff] border border-indigo-50/50 rounded-[2.5rem] py-16 flex flex-col items-center justify-center mb-12 shadow-inner">
                 <span className="text-[18px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">Average QC Score</span>
-                <span className="text-[115px] font-black text-[#5850ec] leading-none mb-4 select-none drop-shadow-sm">
+                <span className="text-[115px] font-black text-[#1E2A56] leading-none mb-4 select-none drop-shadow-sm">
                    {selectedRecord.isRework ? selectedRecord.reworkScore : selectedRecord.score}%
                 </span>
                 <span className="text-[17px] font-bold text-slate-400 uppercase tracking-widest">Total Records: 1</span>
@@ -110,7 +110,7 @@ const Inbox: React.FC<InboxProps> = ({ user, records }) => {
                 <h3 className="text-[20px] font-black text-black px-1">Score Details:</h3>
                 <div className="border border-slate-200 rounded-[1.5rem] overflow-hidden shadow-sm">
                   <table className="w-full text-left text-[18px]">
-                    <thead className="bg-[#5850ec] text-white">
+                    <thead className="bg-[#1E2A56] text-white">
                       <tr>
                         <th className="px-6 py-5 font-bold uppercase tracking-widest text-[14px] border-r border-white/20">Date</th>
                         <th className="px-6 py-5 font-bold uppercase tracking-widest text-[14px] border-r border-white/20">Slot</th>
@@ -133,9 +133,9 @@ const Inbox: React.FC<InboxProps> = ({ user, records }) => {
               </div>
 
               {/* Checker info with blue left accent */}
-              <div className="mb-12 pl-8 border-l-[6px] border-[#5850ec] py-4 bg-indigo-50/20 rounded-r-2xl">
+              <div className="mb-12 pl-8 border-l-[6px] border-[#1E2A56] py-4 bg-indigo-50/20 rounded-r-2xl">
                 <p className="text-[20px] text-slate-600 font-medium">
-                  <span className="font-bold text-[#5850ec] mr-2">QC Checker:</span> 
+                  <span className="font-bold text-[#1E2A56] mr-2">QC Checker:</span> 
                   <span className="text-slate-500">{selectedRecord.qcCheckerName}</span>
                 </p>
               </div>

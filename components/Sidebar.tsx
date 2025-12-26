@@ -19,53 +19,49 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
 
   const filteredTabs = tabs.filter(tab => tab.roles.includes(user.role));
 
-  const getRoleLabel = (role: string) => {
-    if (role === 'QC') return 'QC AGENT';
-    return role;
-  };
-
   return (
-    <div className="w-64 h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-20">
-      <div className="p-8 pb-4">
-        <h1 className="text-[25px] font-black text-white tracking-tight">QC EVALUATOR</h1>
-        <div className="mt-3 flex flex-col">
-          <span className="text-[19px] font-medium text-slate-300">{user.name}</span>
-          <span className="text-[16px] font-bold text-[#6366f1] uppercase tracking-wider mt-0.5">
-            {getRoleLabel(user.role)}
-          </span>
+    <div className="w-[15%] h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-50 border-r border-white/5 shadow-xl">
+      <div className="p-6 pb-2">
+        {/* Compact Branding header */}
+        <div className="flex flex-col mb-6 group cursor-default">
+           <h1 className="text-[15px] font-black text-white uppercase tracking-[0.1em] leading-tight">
+             QC<br/>EVALUATOR
+           </h1>
+           <div className="mt-4 flex flex-col gap-0.5">
+              <span className="text-[12px] font-bold text-slate-300 truncate">{user.name}</span>
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                {user.role}
+              </span>
+           </div>
         </div>
       </div>
 
-      <div className="px-6 py-4">
-        <div className="h-px bg-slate-800 w-full opacity-50"></div>
-      </div>
-
-      <nav className="flex-1 p-4 space-y-2 mt-2">
+      <nav className="flex-1 p-3 space-y-1.5 mt-2">
         {filteredTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all duration-200 group relative ${
+            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg transition-all duration-300 group relative border ${
               activeTab === tab.id
-                ? 'bg-[#4f46e5] text-white shadow-lg shadow-indigo-500/20'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                ? 'bg-[#6366f1] text-white border-[#6366f1] shadow-[0_5px_15px_-5px_rgba(99,102,241,0.5)]'
+                : 'text-slate-400 hover:text-white hover:bg-white/5 border-transparent'
             }`}
           >
-            <i className={`bi ${tab.icon} text-[23px] ${activeTab === tab.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}></i>
-            <span className={`text-[20px] ${activeTab === tab.id ? 'font-semibold' : 'font-medium'}`}>
+            <i className={`bi ${tab.icon} text-[16px] ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-white'}`}></i>
+            <span className={`text-[13px] ${activeTab === tab.id ? 'font-black' : 'font-medium'} truncate`}>
               {tab.label}
             </span>
           </button>
         ))}
       </nav>
 
-      <div className="p-4 mt-auto border-t border-slate-800/50">
+      <div className="p-4 mt-auto border-t border-white/5">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-4 px-5 py-4 rounded-xl text-slate-400 hover:text-white hover:bg-rose-500/10 transition-all group"
+          className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-rose-500/10 transition-all group"
         >
-          <i className="bi bi-box-arrow-left text-[23px] group-hover:scale-110 transition-transform"></i>
-          <span className="text-[20px] font-medium">Logout</span>
+          <i className="bi bi-box-arrow-left text-[18px]"></i>
+          <span className="text-[13px] font-bold">Logout</span>
         </button>
       </div>
     </div>
