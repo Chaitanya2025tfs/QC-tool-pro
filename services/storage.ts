@@ -78,16 +78,16 @@ export const storage = {
     const data = localStorage.getItem('qc_eval_users');
     if (!data) {
       const initialUsers: User[] = [
-        { id: 'tl1', name: 'Mohsin', role: 'MANAGER' },
-        { id: 'tl2', name: 'Venkateshwaran', role: 'MANAGER' },
-        { id: 'qc1', name: 'Jimil', role: 'QC' },
-        { id: 'qc2', name: 'Apurva', role: 'QC' },
-        { id: 'ag1', name: 'Jash', role: 'AGENT', project: 'Moveeasy' },
-        { id: 'ag2', name: 'Chaitanya', role: 'AGENT', project: 'Mfund' },
-        { id: 'ag3', name: 'Priyanshu', role: 'AGENT', project: 'Altrum' },
-        { id: 'ag4', name: 'Vivek', role: 'AGENT', project: 'Moveeasy' },
-        { id: 'ag5', name: 'Manas', role: 'AGENT', project: 'Mfund' },
-        { id: 'admin1', name: 'Admin User', role: 'ADMIN' },
+        { id: 'tl1', name: 'Mohsin', role: 'MANAGER', email: 'mohsin@gmail.com', password: '123456', phoneNumber: '9876543210' },
+        { id: 'tl2', name: 'Venkateshwaran', role: 'MANAGER', email: 'venkateshwaran@gmail.com', password: '123456', phoneNumber: '9876543211' },
+        { id: 'qc1', name: 'Jimil', role: 'QC', email: 'jimil@gmail.com', password: '123456', phoneNumber: '9876543212' },
+        { id: 'qc2', name: 'Apurva', role: 'QC', email: 'apurva@gmail.com', password: '123456', phoneNumber: '9876543213' },
+        { id: 'ag1', name: 'Jash', role: 'AGENT', project: 'Moveeasy', email: 'jashtfs14@gmail.com', password: '123456', phoneNumber: '9876543214' },
+        { id: 'ag2', name: 'Chaitanya', role: 'AGENT', project: 'Mfund', email: 'chaitanya.bh.2025@gmail.com', password: '123456', phoneNumber: '9876543215' },
+        { id: 'ag3', name: 'Priyanshu', role: 'AGENT', project: 'Altrum', email: 'priyanshu@gmail.com', password: '123456', phoneNumber: '9876543216' },
+        { id: 'ag4', name: 'Vivek', role: 'AGENT', project: 'Moveeasy', email: 'vivekattransform@gmail.com', password: '123456', phoneNumber: '9876543217' },
+        { id: 'ag5', name: 'Manas', role: 'AGENT', project: 'Mfund', email: 'manas.pradhan8855@gmail.com', password: '123456', phoneNumber: '9876543218' },
+        { id: 'admin1', name: 'Admin User', role: 'ADMIN', email: 'admin@gmail.com', password: '123456', phoneNumber: '9999999999' },
       ];
       localStorage.setItem('qc_eval_users', JSON.stringify(initialUsers));
       return initialUsers;

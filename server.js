@@ -33,9 +33,22 @@ async function initDB() {
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         role VARCHAR(20) NOT NULL,
-        project VARCHAR(100)
+        project VARCHAR(100),
+        email VARCHAR(150),
+        password VARCHAR(100),
+        phoneNumber VARCHAR(20)
       )
     `);
+
+    // Check for existing columns to support schema evolution
+    const [columns] = await pool.query('SHOW COLUMNS FROM users');
+    const hasEmail = columns.some(c => c.Field === 'email');
+    const hasPassword = columns.some(c => c.Field === 'password');
+    const hasPhone = columns.some(c => c.Field === 'phoneNumber');
+    
+    if (!hasEmail) await pool.query('ALTER TABLE users ADD COLUMN email VARCHAR(150)');
+    if (!hasPassword) await pool.query('ALTER TABLE users ADD COLUMN password VARCHAR(100) DEFAULT "123456"');
+    if (!hasPhone) await pool.query('ALTER TABLE users ADD COLUMN phoneNumber VARCHAR(20)');
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS records (
@@ -62,6 +75,43 @@ async function initDB() {
   }
 }
 
+// Simulated Email Sender
+async function sendQCReportEmail(record) {
+  try {
+    const [users] = await pool.query('SELECT email FROM users WHERE name = ?', [record.agentName]);
+    const agentEmail = users[0]?.email || 'agent@gmail.com';
+    const score = record.isRework ? record.reworkScore : record.score;
+
+    console.log(`
+------------------------------------------------------------
+[SIMULATED EMAIL SYSTEM]
+SENDER: Portal Owner (System)
+RECEIVER: ${record.agentName}
+DESTINATION: ${agentEmail}
+SUBJECT: Your QC Evaluation Report - ${record.date}
+
+MESSAGE CONTENT:
+Dear ${record.agentName},
+Your QC evaluation report for QC Evaluation on ${record.date} is ready.
+
+AVERAGE QC SCORE: ${score}%
+TOTAL RECORDS: 1
+
+SCORE DETAILS:
+Date: ${record.date} | Slot: ${record.timeSlot} | Project: ${record.projectName} | Score: ${score}%
+
+QC Checker: ${record.qcCheckerName}
+
+Note: This is an automated report sent from the Quality Evaluator Portal.
+------------------------------------------------------------
+    `);
+    return true;
+  } catch (e) {
+    console.error('Email simulation failed:', e);
+    return false;
+  }
+}
+
 // Health Check
 app.get('/api/health', (req, res) => res.sendStatus(200));
 
@@ -77,11 +127,11 @@ app.get('/api/users', async (req, res) => {
 });
 
 app.post('/api/users', async (req, res) => {
-  const { id, name, role, project } = req.body;
+  const { id, name, role, project, email, password, phoneNumber } = req.body;
   try {
     await pool.query(
-      'INSERT INTO users (id, name, role, project) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=?, role=?, project=?',
-      [id, name, role, project, name, role, project]
+      'INSERT INTO users (id, name, role, project, email, password, phoneNumber) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=?, role=?, project=?, email=?, password=?, phoneNumber=?',
+      [id, name, role, project, email, password, phoneNumber, name, role, project, email, password, phoneNumber]
     );
     res.sendStatus(200);
   } catch (err) {
@@ -103,7 +153,6 @@ app.delete('/api/users/:id', async (req, res) => {
 app.get('/api/records', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM records ORDER BY createdAt DESC');
-    // MySQL returns DATE as objects, convert to string YYYY-MM-DD
     const formatted = rows.map(r => ({
       ...r,
       date: r.date.toISOString().split('T')[0],
@@ -129,6 +178,10 @@ app.post('/api/records', async (req, res) => {
         r.date, r.timeSlot, r.tlName, r.agentName, r.qcCheckerName, r.projectName, r.taskName, r.score, r.reworkScore, r.isRework, r.notes, r.noWork, r.manualQC, JSON.stringify(r.samples)
       ]
     );
+    
+    // Send email notification to agent
+    await sendQCReportEmail(r);
+    
     res.sendStatus(200);
   } catch (err) {
     res.status(500).json({ error: err.message });

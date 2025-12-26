@@ -6,6 +6,9 @@ export interface User {
   name: string;
   role: Role;
   project?: string;
+  email: string;
+  password?: string;
+  phoneNumber?: string;
 }
 
 export interface QCError {

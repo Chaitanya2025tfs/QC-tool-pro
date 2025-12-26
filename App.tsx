@@ -6,6 +6,7 @@ import QCForm from './components/QCForm';
 import ReportTable from './components/ReportTable';
 import AdminPanel from './components/AdminPanel';
 import Login from './components/Login';
+import SuccessReport from './components/SuccessReport';
 import { User, QCRecord } from './types';
 import { storage } from './services/storage';
 
@@ -15,6 +16,7 @@ const App: React.FC = () => {
   const [records, setRecords] = useState<QCRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<QCRecord | undefined>();
+  const [showSuccessReport, setShowSuccessReport] = useState<QCRecord | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -40,8 +42,9 @@ const App: React.FC = () => {
     setLoading(true);
     await storage.saveRecord(record);
     await loadData();
-    setActiveTab('report-table');
     setEditingRecord(undefined);
+    // Show the success report confirmation immediately after saving
+    setShowSuccessReport(record);
   };
 
   const deleteRecord = async (id: string) => {
@@ -99,6 +102,16 @@ const App: React.FC = () => {
           />
         )}
         {activeTab === 'admin-panel' && user.role === 'ADMIN' && <AdminPanel />}
+
+        {showSuccessReport && (
+          <SuccessReport 
+            record={showSuccessReport} 
+            onClose={() => {
+              setShowSuccessReport(null);
+              setActiveTab('report-table');
+            }} 
+          />
+        )}
       </main>
     </div>
   );

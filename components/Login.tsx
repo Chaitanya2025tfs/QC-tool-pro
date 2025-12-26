@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
 import { storage } from '../services/storage';
 
@@ -8,9 +8,14 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [emailQuery, setEmailQuery] = useState('');
+  const [password, setPassword] = useState('');
   const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -21,17 +26,62 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     fetchUsers();
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const user = users.find(u => u.id === selectedUserId);
-    if (user) onLogin(user);
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const generateEmail = (name: string) => {
+    return name.toLowerCase().replace(/\s+/g, '') + '@gmail.com';
   };
 
-  const getRoleLabel = (role: string) => {
-    switch(role) {
-      case 'QC': return 'QC AGENT';
-      default: return role;
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setEmailQuery(val);
+    setError('');
+
+    if (val.length > 0) {
+      const filtered = users.filter(u => 
+        (u.email && u.email.includes(val.toLowerCase())) || 
+        u.name.toLowerCase().includes(val.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+      setShowDropdown(true);
+    } else {
+      setFilteredUsers([]);
+      setShowDropdown(false);
     }
+  };
+
+  const selectUser = (user: User) => {
+    setEmailQuery(user.email || generateEmail(user.name));
+    setShowDropdown(false);
+    setError('');
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = users.find(u => (u.email || generateEmail(u.name)).toLowerCase() === emailQuery.toLowerCase());
+    
+    if (!user) {
+      setError('Email address not found.');
+      return;
+    }
+
+    // Use stored user password if exists, otherwise fallback to default
+    const correctPassword = user.password || '123456';
+    if (password !== correctPassword) {
+      setError('Incorrect password.');
+      return;
+    }
+
+    onLogin(user);
   };
 
   return (
@@ -52,45 +102,94 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-[540px] bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-12 flex flex-col items-center">
+        <div className="w-full max-w-[540px] bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-14 flex flex-col items-center">
           
-          <div className="w-20 h-20 bg-[#4f46e5] rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6">
-            <i className="bi bi-check-circle-fill text-white text-[35px]"></i>
+          <div className="w-20 h-20 bg-[#4f46e5] rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8">
+            <i className="bi bi-shield-lock-fill text-white text-[40px]"></i>
           </div>
 
-          <h1 className="text-[25px] font-normal text-black mb-2">QC Tool Portal</h1>
-          <p className="text-[18px] text-black font-bold mb-10">Please select your account to continue</p>
+          <h1 className="text-[30px] font-black text-[#1a2138] mb-2 tracking-tight">System Login</h1>
+          <p className="text-[18px] text-black font-bold mb-10 text-center">Enter your credentials to access the evaluator</p>
           
-          <form onSubmit={handleLogin} className="w-full space-y-8">
-            <div className="space-y-2">
-              <label className="block text-[16px] font-bold text-black uppercase tracking-widest ml-1">Login Identity</label>
-              <select 
-                value={selectedUserId}
-                onChange={e => setSelectedUserId(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-4 bg-[#f8fafc] border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-[18px] font-normal text-black appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_1.5rem_center] bg-no-repeat disabled:opacity-50"
-                required
-              >
-                <option value="">{loading ? 'Loading database...' : 'Choose your name...'}</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({getRoleLabel(u.role)})
-                  </option>
-                ))}
-              </select>
+          <form onSubmit={handleLogin} className="w-full space-y-8 relative">
+            {/* Email Field with Autocomplete */}
+            <div className="space-y-3 relative" ref={dropdownRef}>
+              <label className="block text-[16px] font-bold text-black uppercase tracking-widest ml-1">Work Email</label>
+              <div className="relative">
+                <i className="bi bi-envelope absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]"></i>
+                <input 
+                  type="text"
+                  placeholder="name@gmail.com"
+                  value={emailQuery}
+                  onChange={handleEmailChange}
+                  onFocus={() => emailQuery && setShowDropdown(true)}
+                  className="w-full pl-14 pr-5 py-5 bg-[#f8fafc] border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-[21px] font-normal text-black"
+                  required
+                />
+              </div>
+
+              {/* Autocomplete Dropdown */}
+              {showDropdown && filteredUsers.length > 0 && (
+                <div className="absolute z-50 top-full left-0 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl max-h-[250px] overflow-y-auto custom-scrollbar overflow-hidden">
+                  {filteredUsers.map(u => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => selectUser(u)}
+                      className="w-full px-6 py-4 text-left hover:bg-indigo-50 transition-colors flex flex-col group border-b border-slate-50 last:border-0"
+                    >
+                      <span className="text-[18px] font-bold text-black group-hover:text-indigo-600">{u.name}</span>
+                      <span className="text-[15px] font-normal text-slate-500">{u.email || generateEmail(u.name)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Password Field */}
+            <div className="space-y-3">
+              <label className="block text-[16px] font-bold text-black uppercase tracking-widest ml-1">Password</label>
+              <div className="relative">
+                <i className="bi bi-key absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]"></i>
+                <input 
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  className="w-full pl-14 pr-5 py-5 bg-[#f8fafc] border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-[21px] font-normal text-black"
+                  required
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center gap-3 text-rose-600 animate-in fade-in slide-in-from-top-2">
+                <i className="bi bi-exclamation-circle-fill"></i>
+                <span className="text-[16px] font-bold">{error}</span>
+              </div>
+            )}
 
             <button 
               type="submit"
-              disabled={!selectedUserId || loading}
-              className={`w-full py-5 text-white rounded-xl font-normal uppercase tracking-[0.2em] text-[17px] shadow-lg transition-all active:scale-[0.98] ${
-                selectedUserId && !loading
-                ? 'bg-[#1a2138] hover:bg-slate-800' 
-                : 'bg-slate-300 cursor-not-allowed opacity-80'
+              disabled={loading}
+              className={`w-full py-5 text-white rounded-2xl font-normal uppercase tracking-[0.3em] text-[19px] shadow-xl transition-all active:scale-[0.98] ${
+                !loading
+                ? 'bg-[#111827] hover:bg-[#1f2937] shadow-indigo-500/10' 
+                : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
-              Sign In
+              {loading ? 'Authenticating...' : 'Sign In'}
             </button>
+
+            <div className="pt-6 border-t border-slate-100 text-center">
+              <p className="text-[14px] text-slate-400 font-medium">
+                Need to change your password? <br/>
+                <span className="text-black font-bold">Contact Admin Team</span> for support.
+              </p>
+            </div>
           </form>
         </div>
       </div>

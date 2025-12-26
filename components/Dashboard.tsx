@@ -28,9 +28,13 @@ const PIE_COLORS = [
 ];
 
 const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
+  // Calculate dynamic default date range (Last 30 days)
+  const today = new Date().toISOString().split('T')[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
   const [dateRange, setDateRange] = useState({
-    start: '2025-12-19',
-    end: '2025-12-25'
+    start: thirtyDaysAgo,
+    end: today
   });
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [projectFocus, setProjectFocus] = useState('All Operations');
@@ -111,18 +115,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
     }).filter(d => d.value > 0);
   }, [filteredRecords]);
 
+  const resetFilters = () => {
+    setSelectedAgents([]);
+    setProjectFocus('All Operations');
+    setDateRange({ start: thirtyDaysAgo, end: today });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#f3f4f6]">
       <div className="w-full h-11 bg-white border-b border-gray-200 flex items-center justify-center relative shadow-sm shrink-0">
         <span className="text-[17px] font-normal text-black">QC Evaluation Tool Pro</span>
         <div className="absolute right-4 flex items-center gap-4 text-[16px] text-black font-bold">
            <button className="flex items-center gap-1"><i className="bi bi-display"></i> Device</button>
-           <button><i className="bi bi-arrow-clockwise"></i></button>
+           <button onClick={() => window.location.reload()}><i className="bi bi-arrow-clockwise"></i></button>
            <button><i className="bi bi-arrows-angle-expand"></i></button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+        {/* Slicer Section */}
         <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-end justify-between">
           <div className="flex items-center gap-6">
             <div className="space-y-2">
@@ -153,202 +164,218 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col items-end gap-2">
              <label className="block text-right text-[15px] font-bold text-black uppercase tracking-widest mr-1">Project Focus</label>
-             <select value={projectFocus} onChange={e => setProjectFocus(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[16px] font-normal text-black outline-none">
-               <option>All Operations</option>
-               {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
-             </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <KPICard title="REGULAR AVG" value={`${stats.regAvg.toFixed(1)}%`} icon="bi-activity" color="border-l-[#4f46e5]" />
-          <KPICard title="REWORK AVG" value={`${stats.rewAvg.toFixed(1)}%`} icon="bi-arrow-repeat" color="border-l-[#10b981]" />
-          <KPICard title="PROJECTS" value={stats.activeProjects} icon="bi-layers-fill" color="border-l-[#ef4444]" />
-          <KPICard title="ACTIVE SELECTION" value={stats.activeSelection} icon="bi-person-check-fill" color="border-l-[#f59e0b]" />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartBox title="TIME SLOT TRENDS (REGULAR)" icon="bi-graph-up">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" fontSize={15} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
-                  <Tooltip />
-                  <Line connectNulls type="monotone" dataKey="12 PM" stroke={LEGEND_COLORS['12 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
-                  <Line connectNulls type="monotone" dataKey="4 PM" stroke={LEGEND_COLORS['4 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
-                  <Line connectNulls type="monotone" dataKey="6 PM" stroke={LEGEND_COLORS['6 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <Legend />
-          </ChartBox>
-
-          <ChartBox title="TIME SLOT TRENDS (REWORK)" icon="bi-arrow-repeat">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" fontSize={15} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
-                  <Tooltip />
-                  <Line connectNulls type="monotone" dataKey="12 PM Rework" stroke={LEGEND_COLORS['12 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
-                  <Line connectNulls type="monotone" dataKey="4 PM Rework" stroke={LEGEND_COLORS['4 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
-                  <Line connectNulls type="monotone" dataKey="6 PM Rework" stroke={LEGEND_COLORS['6 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <Legend />
-          </ChartBox>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartBox title="PROJECT QC AVG PER SLOT" icon="bi-bar-chart-line">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={projectSlotData} layout="vertical" margin={{ left: 30, right: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis type="number" domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" fontSize={15} axisLine={false} tickLine={false} />
-                  <Tooltip />
-                  <Bar dataKey="12 PM" fill={LEGEND_COLORS['12 PM']} radius={[0, 4, 4, 0]} barSize={25} />
-                  <Bar dataKey="4 PM" fill={LEGEND_COLORS['4 PM']} radius={[0, 4, 4, 0]} barSize={25} />
-                  <Bar dataKey="6 PM" fill={LEGEND_COLORS['6 PM']} radius={[0, 4, 4, 0]} barSize={25} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <Legend />
-          </ChartBox>
-
-          <ChartBox title="REWORK PERFORMANCE PER SLOT" icon="bi-bar-chart-steps">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={reworkSlotData} layout="vertical" margin={{ left: 30, right: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis type="number" domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" fontSize={15} axisLine={false} tickLine={false} />
-                  <Tooltip />
-                  <Bar dataKey="12 PM" fill={LEGEND_COLORS['12 PM']} radius={[0, 4, 4, 0]} barSize={25} />
-                  <Bar dataKey="4 PM" fill={LEGEND_COLORS['4 PM']} radius={[0, 4, 4, 0]} barSize={25} />
-                  <Bar dataKey="6 PM" fill={LEGEND_COLORS['6 PM']} radius={[0, 4, 4, 0]} barSize={25} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <Legend />
-          </ChartBox>
-        </div>
-
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-8">
-             <div className="flex items-center gap-2">
-               <i className="bi bi-calendar-check text-[#4f46e5]"></i>
-               <h3 className="text-[15px] font-bold uppercase tracking-[0.2em] text-black">Performance & Productivity Summary</h3>
+             <div className="flex gap-3">
+                <select value={projectFocus} onChange={e => setProjectFocus(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[16px] font-normal text-black outline-none">
+                  <option>All Operations</option>
+                  {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <button onClick={resetFilters} className="px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-[14px] font-bold uppercase tracking-widest border border-rose-100 hover:bg-rose-100">Reset</button>
              </div>
-             <span className="text-[14px] font-bold uppercase bg-slate-100 px-2 py-1 rounded text-black">{filteredRecords.length} Grouped Entries</span>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left bg-slate-50/30">
-                  <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6 rounded-l-xl">Date</th>
-                  <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6">Agent Name</th>
-                  <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6">Project</th>
-                  <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6">Submissions</th>
-                  <th className="py-4 text-right text-[14px] font-bold text-black uppercase tracking-widest px-6">Regular QC Score</th>
-                  <th className="py-4 text-right text-[14px] font-bold text-black uppercase tracking-widest px-6 rounded-r-xl">Rework QC Score</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filteredRecords.map((r, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-5 text-[16px] font-bold text-black px-6">{r.date}</td>
-                    <td className="py-5 text-[16px] font-normal text-black px-6">{r.agentName}</td>
-                    <td className="py-5 px-6">
-                       <span className="text-[14px] font-bold bg-indigo-50 text-[#4f46e5] px-3 py-1 rounded-md uppercase tracking-tighter">{r.projectName}</span>
-                    </td>
-                    <td className="py-5 text-center px-6">
-                      <span className="bg-slate-50 text-black font-bold px-2 py-0.5 rounded text-[15px]">1</span>
-                    </td>
-                    <td className="py-5 text-right px-6">
-                      <span className={`text-[17px] font-normal ${r.score < 90 ? 'text-[#ef4444]' : 'text-black'}`}>{r.score}%</span>
-                    </td>
-                    <td className="py-5 text-right px-6">
-                      <span className="text-[17px] font-normal text-[#10b981]">{r.reworkScore !== undefined ? `${r.reworkScore}%` : '-'}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
 
-        <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-2 mb-10">
-             <div className="w-2.5 h-2.5 rounded-full bg-orange-400"></div>
-             <h3 className="text-[15px] font-bold uppercase tracking-widest text-black">Active Agent Distribution per Project</h3>
+        {filteredRecords.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2.5rem] border border-dashed border-slate-300">
+             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6">
+                <i className="bi bi-clipboard-x text-[40px]"></i>
+             </div>
+             <h3 className="text-[22px] font-black text-slate-400 uppercase tracking-widest">No Records Found</h3>
+             <p className="text-slate-400 mt-2">Adjust your date slicer or filters to see your productivity records.</p>
+             <button onClick={resetFilters} className="mt-8 px-8 py-3 bg-[#4f46e5] text-white rounded-xl font-bold uppercase tracking-widest text-[14px] shadow-lg shadow-indigo-500/20">Reset Filters</button>
           </div>
-          
-          <div className="flex flex-col lg:flex-row items-center gap-16">
-            <div className="w-[340px] h-[340px] relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={distributionData} innerRadius={85} outerRadius={125} paddingAngle={8} dataKey="value">
-                    {distributionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <KPICard title="REGULAR AVG" value={`${stats.regAvg.toFixed(1)}%`} icon="bi-activity" color="border-l-[#4f46e5]" />
+              <KPICard title="REWORK AVG" value={`${stats.rewAvg.toFixed(1)}%`} icon="bi-arrow-repeat" color="border-l-[#10b981]" />
+              <KPICard title="PROJECTS" value={stats.activeProjects} icon="bi-layers-fill" color="border-l-[#ef4444]" />
+              <KPICard title="ACTIVE SELECTION" value={stats.activeSelection} icon="bi-person-check-fill" color="border-l-[#f59e0b]" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ChartBox title="TIME SLOT TRENDS (REGULAR)" icon="bi-graph-up">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" fontSize={15} axisLine={false} tickLine={false} />
+                      <YAxis domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
+                      <Tooltip />
+                      <Line connectNulls type="monotone" dataKey="12 PM" stroke={LEGEND_COLORS['12 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
+                      <Line connectNulls type="monotone" dataKey="4 PM" stroke={LEGEND_COLORS['4 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
+                      <Line connectNulls type="monotone" dataKey="6 PM" stroke={LEGEND_COLORS['6 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <Legend />
+              </ChartBox>
+
+              <ChartBox title="TIME SLOT TRENDS (REWORK)" icon="bi-arrow-repeat">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" fontSize={15} axisLine={false} tickLine={false} />
+                      <YAxis domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
+                      <Tooltip />
+                      <Line connectNulls type="monotone" dataKey="12 PM Rework" stroke={LEGEND_COLORS['12 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
+                      <Line connectNulls type="monotone" dataKey="4 PM Rework" stroke={LEGEND_COLORS['4 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
+                      <Line connectNulls type="monotone" dataKey="6 PM Rework" stroke={LEGEND_COLORS['6 PM']} strokeWidth={3} dot={{ r: 4, fill: '#fff' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <Legend />
+              </ChartBox>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ChartBox title="PROJECT QC AVG PER SLOT" icon="bi-bar-chart-line">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={projectSlotData} layout="vertical" margin={{ left: 30, right: 30 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
+                      <YAxis dataKey="name" type="category" fontSize={15} axisLine={false} tickLine={false} />
+                      <Tooltip />
+                      <Bar dataKey="12 PM" fill={LEGEND_COLORS['12 PM']} radius={[0, 4, 4, 0]} barSize={25} />
+                      <Bar dataKey="4 PM" fill={LEGEND_COLORS['4 PM']} radius={[0, 4, 4, 0]} barSize={25} />
+                      <Bar dataKey="6 PM" fill={LEGEND_COLORS['6 PM']} radius={[0, 4, 4, 0]} barSize={25} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <Legend />
+              </ChartBox>
+
+              <ChartBox title="REWORK PERFORMANCE PER SLOT" icon="bi-bar-chart-steps">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reworkSlotData} layout="vertical" margin={{ left: 30, right: 30 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" domain={[0, 100]} fontSize={15} axisLine={false} tickLine={false} />
+                      <YAxis dataKey="name" type="category" fontSize={15} axisLine={false} tickLine={false} />
+                      <Tooltip />
+                      <Bar dataKey="12 PM" fill={LEGEND_COLORS['12 PM']} radius={[0, 4, 4, 0]} barSize={25} />
+                      <Bar dataKey="4 PM" fill={LEGEND_COLORS['4 PM']} radius={[0, 4, 4, 0]} barSize={25} />
+                      <Bar dataKey="6 PM" fill={LEGEND_COLORS['6 PM']} radius={[0, 4, 4, 0]} barSize={25} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <Legend />
+              </ChartBox>
+            </div>
+
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between mb-8">
+                 <div className="flex items-center gap-2">
+                   <i className="bi bi-calendar-check text-[#4f46e5]"></i>
+                   <h3 className="text-[15px] font-bold uppercase tracking-[0.2em] text-black">Performance & Productivity Summary</h3>
+                 </div>
+                 <span className="text-[14px] font-bold uppercase bg-slate-100 px-2 py-1 rounded text-black">{filteredRecords.length} Grouped Entries</span>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left bg-slate-50/30">
+                      <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6 rounded-l-xl">Date</th>
+                      <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6">Agent Name</th>
+                      <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6">Project</th>
+                      <th className="py-4 text-[14px] font-bold text-black uppercase tracking-widest px-6">Submissions</th>
+                      <th className="py-4 text-right text-[14px] font-bold text-black uppercase tracking-widest px-6">Regular QC Score</th>
+                      <th className="py-4 text-right text-[14px] font-bold text-black uppercase tracking-widest px-6 rounded-r-xl">Rework QC Score</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredRecords.map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-5 text-[16px] font-bold text-black px-6">{r.date}</td>
+                        <td className="py-5 text-[16px] font-normal text-black px-6">{r.agentName}</td>
+                        <td className="py-5 px-6">
+                           <span className="text-[14px] font-bold bg-indigo-50 text-[#4f46e5] px-3 py-1 rounded-md uppercase tracking-tighter">{r.projectName}</span>
+                        </td>
+                        <td className="py-5 text-center px-6">
+                          <span className="bg-slate-50 text-black font-bold px-2 py-0.5 rounded text-[15px]">1</span>
+                        </td>
+                        <td className="py-5 text-right px-6">
+                          <span className={`text-[17px] font-normal ${r.score < 90 ? 'text-[#ef4444]' : 'text-black'}`}>{r.score}%</span>
+                        </td>
+                        <td className="py-5 text-right px-6">
+                          <span className="text-[17px] font-normal text-[#10b981]">{r.reworkScore !== undefined ? `${r.reworkScore}%` : '-'}</span>
+                        </td>
+                      </tr>
                     ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                 {distributionData.length > 0 && (
-                   <span className="text-[17px] font-bold text-[#4f46e5] uppercase tracking-tighter text-center px-4">
-                     Project Split
-                   </span>
-                 )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            <div className="flex-1 w-full">
-               <div className="border border-slate-100 rounded-3xl overflow-hidden">
-                 <table className="w-full text-[16px]">
-                   <thead>
-                      <tr className="text-left bg-slate-50/50">
-                        <th className="px-8 py-5 font-bold text-black uppercase tracking-widest text-[14px]">Project Name</th>
-                        <th className="px-8 py-5 font-bold text-black uppercase tracking-widest text-center text-[14px]">Active Agents</th>
-                        <th className="px-8 py-5 font-bold text-black uppercase tracking-widest text-right text-[14px]">Agent Names</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-50">
-                     {distributionData.map((d, i) => (
-                       <tr key={i} className="group hover:bg-slate-50/20 transition-colors">
-                         <td className="px-8 py-6 font-normal text-black">
-                            <div className="flex items-center gap-3">
-                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></span>
-                              {d.name}
-                            </div>
-                         </td>
-                         <td className="px-8 py-6 text-center">
-                            <span className="bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg font-normal text-black text-[15px]">{d.value}</span>
-                         </td>
-                         <td className="px-8 py-6 text-right">
-                            <div className="flex flex-wrap justify-end gap-2">
-                               {d.agents.map(name => (
-                                 <span key={name} className="bg-indigo-50/50 text-[#4f46e5] px-3 py-1 rounded-md text-[14px] font-normal uppercase tracking-tighter">{name}</span>
-                               ))}
-                            </div>
-                         </td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-               </div>
+            <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-10">
+                 <div className="w-2.5 h-2.5 rounded-full bg-orange-400"></div>
+                 <h3 className="text-[15px] font-bold uppercase tracking-widest text-black">Active Agent Distribution per Project</h3>
+              </div>
+              
+              <div className="flex flex-col lg:flex-row items-center gap-16">
+                <div className="w-[340px] h-[340px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={distributionData} innerRadius={85} outerRadius={125} paddingAngle={8} dataKey="value">
+                        {distributionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                     {distributionData.length > 0 && (
+                       <span className="text-[17px] font-bold text-[#4f46e5] uppercase tracking-tighter text-center px-4">
+                         Project Split
+                       </span>
+                     )}
+                  </div>
+                </div>
+
+                <div className="flex-1 w-full">
+                   <div className="border border-slate-100 rounded-3xl overflow-hidden">
+                     <table className="w-full text-[16px]">
+                       <thead>
+                          <tr className="text-left bg-slate-50/50">
+                            <th className="px-8 py-5 font-bold text-black uppercase tracking-widest text-[14px]">Project Name</th>
+                            <th className="px-8 py-5 font-bold text-black uppercase tracking-widest text-center text-[14px]">Active Agents</th>
+                            <th className="px-8 py-5 font-bold text-black uppercase tracking-widest text-right text-[14px]">Agent Names</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-50">
+                         {distributionData.map((d, i) => (
+                           <tr key={i} className="group hover:bg-slate-50/20 transition-colors">
+                             <td className="px-8 py-6 font-normal text-black">
+                                <div className="flex items-center gap-3">
+                                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></span>
+                                  {d.name}
+                                </div>
+                             </td>
+                             <td className="px-8 py-6 text-center">
+                                <span className="bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg font-normal text-black text-[15px]">{d.value}</span>
+                             </td>
+                             <td className="px-8 py-6 text-right">
+                                <div className="flex flex-wrap justify-end gap-2">
+                                   {d.agents.map(name => (
+                                     <span key={name} className="bg-indigo-50/50 text-[#4f46e5] px-3 py-1 rounded-md text-[14px] font-normal uppercase tracking-tighter">{name}</span>
+                                   ))}
+                                </div>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
