@@ -83,11 +83,72 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
     }).sort((a, b) => b.createdAt - a.createdAt);
   }, [records, filters, user]);
 
+  // Export Logic
+  const exportToExcel = () => {
+    if (displayRows.length === 0) return;
+
+    // Helper to escape commas and quotes for CSV
+    const escape = (val: any) => {
+      if (val === null || val === undefined) return '';
+      let str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headers = [
+      'Record Date',
+      'Time Slot',
+      'Audit Type',
+      'Project',
+      'Task / File Name',
+      'Agent Name',
+      'QC Score',
+      'QC Checker',
+      'Manual Feedback',
+      'Global Feedback'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...displayRows.map(r => [
+        r.date,
+        r.timeSlot,
+        r.isRework ? 'REWORK QC' : 'REGULAR QC',
+        r.projectName,
+        r.taskName,
+        r.agentName,
+        `${r.score}%`,
+        r.qcCheckerName,
+        r.manualFeedback || '',
+        r.notes || ''
+      ].map(escape).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `QC_Report_${filters.startDate}_to_${filters.endDate}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col gap-6 pb-20">
-      <h2 className="text-[22px] font-black text-[#1a2138] uppercase tracking-tight">Audit Repository</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-[22px] font-black text-[#1a2138] uppercase tracking-tight">Audit Repository</h2>
+        <div className="flex items-center gap-2">
+           <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-slate-100">
+             {displayRows.length} Entries Filtered
+           </span>
+        </div>
+      </div>
 
-      {/* Unified Filter Bar - Centered without Search */}
+      {/* Unified Filter Bar */}
       <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.03)] flex justify-center">
         <div className="flex flex-wrap items-center justify-center gap-6 w-full">
           
@@ -122,7 +183,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
           </div>
 
           <div className="flex items-center gap-6 flex-shrink-0">
-            {/* Date Ranges - Compacted */}
+            {/* Date Ranges */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">FROM:</span>
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl group relative shadow-sm">
@@ -168,14 +229,27 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
             </div>
           </div>
 
-          {/* Reset Button */}
-          <button 
-            onClick={resetFilters}
-            className="flex items-center justify-center w-11 h-11 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all flex-shrink-0 shadow-sm border border-rose-100"
-            title="Reset All Filters"
-          >
-            <i className="bi bi-arrow-counterclockwise text-[20px]"></i>
-          </button>
+          <div className="flex items-center gap-3 ml-2">
+            {/* Export Excel Button */}
+            <button 
+              onClick={exportToExcel}
+              disabled={displayRows.length === 0}
+              className="flex items-center justify-center gap-2 px-5 h-11 bg-white text-indigo-600 border-2 border-indigo-100 hover:bg-indigo-50 hover:border-indigo-200 rounded-xl transition-all flex-shrink-0 shadow-sm disabled:opacity-30 disabled:cursor-not-allowed group active:scale-95"
+              title="Download Excel Report"
+            >
+              <i className="bi bi-file-earmark-excel-fill text-[18px]"></i>
+              <span className="text-[11px] font-black uppercase tracking-widest">Export</span>
+            </button>
+
+            {/* Reset Button */}
+            <button 
+              onClick={resetFilters}
+              className="flex items-center justify-center w-11 h-11 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all flex-shrink-0 shadow-sm border border-rose-100 active:scale-90"
+              title="Reset All Filters"
+            >
+              <i className="bi bi-arrow-counterclockwise text-[20px]"></i>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -284,37 +358,37 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - Updated to 20% width and 30% height */}
       {recordToDelete && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1E2A56]/60 backdrop-blur-sm p-6 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-10 space-y-7 text-center">
-              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto border border-rose-100 shadow-sm">
-                <i className="bi bi-trash3-fill text-[28px]"></i>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1E2A56]/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white w-[20vw] h-[30vh] min-w-[300px] min-h-[250px] rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+            <div className="flex-1 p-6 space-y-4 text-center flex flex-col items-center justify-center overflow-y-auto custom-scrollbar">
+              <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 border border-rose-100 shadow-sm shrink-0">
+                <i className="bi bi-trash3-fill text-[20px]"></i>
               </div>
-              <div className="space-y-3">
-                <h3 className="text-[18px] font-black text-[#1E2A56] uppercase tracking-tight">Delete Audit Record?</h3>
-                <p className="text-[14px] font-medium text-slate-500 leading-relaxed px-4">
-                  Permanently remove the audit for <span className="font-bold text-black">{recordToDelete.agentName}</span> from the project <span className="font-bold text-black">{recordToDelete.projectName}</span>?
+              <div className="space-y-1.5">
+                <h3 className="text-[16px] font-black text-[#1E2A56] uppercase tracking-tight">Delete Record?</h3>
+                <p className="text-[12px] font-medium text-slate-500 leading-snug px-2">
+                  Permanently remove the audit for <span className="font-bold text-black">{recordToDelete.agentName}</span> from <span className="font-bold text-black">{recordToDelete.projectName}</span>?
                 </p>
               </div>
-              <div className="flex gap-4 pt-4">
-                <button 
-                  onClick={() => {
-                    onDelete(recordToDelete.id);
-                    setRecordToDelete(null);
-                  }}
-                  className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 active:scale-95"
-                >
-                  Yes, Delete
-                </button>
-                <button 
-                  onClick={() => setRecordToDelete(null)}
-                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition-all active:scale-95 border border-slate-200"
-                >
-                  Cancel
-                </button>
-              </div>
+            </div>
+            <div className="p-5 flex gap-3 bg-slate-50 border-t border-slate-100 shrink-0">
+              <button 
+                onClick={() => {
+                  onDelete(recordToDelete.id);
+                  setRecordToDelete(null);
+                }}
+                className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 transition-all shadow-md shadow-rose-500/10 active:scale-95"
+              >
+                Yes, Delete
+              </button>
+              <button 
+                onClick={() => setRecordToDelete(null)}
+                className="flex-1 py-3 bg-white text-slate-600 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-100 transition-all active:scale-95 border border-slate-200 shadow-sm"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -351,8 +425,10 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
                 </button>
               </div>
             </div>
-            <div className="p-10 space-y-10 overflow-y-auto custom-scrollbar flex-1 bg-[#f8fafc]">
-              <div className="grid grid-cols-3 gap-6">
+            
+            <div className="p-10 space-y-8 overflow-y-auto custom-scrollbar flex-1 bg-[#f8fafc]">
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-1">
                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Row Score</span>
                    <span className="text-[32px] font-black text-[#6366f1] leading-none">{viewingRecord.score}%</span>
@@ -366,6 +442,32 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
                    <span className="text-[18px] font-bold text-[#1a2138]">{viewingRecord.qcCheckerName}</span>
                 </div>
               </div>
+
+              {/* Feedback Section - Added both Manual and Global Feedback */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-3 relative overflow-hidden">
+                   <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-400"></div>
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                     <i className="bi bi-shield-exclamation text-amber-500"></i>
+                     Manual Audit Feedback
+                   </h4>
+                   <p className="text-[13px] font-medium text-slate-600 italic leading-relaxed">
+                     {viewingRecord.manualFeedback || 'No manual feedback recorded for this audit.'}
+                   </p>
+                </div>
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-3 relative overflow-hidden">
+                   <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                     <i className="bi bi-chat-left-text-fill text-indigo-500"></i>
+                     Global Coaching Feedback
+                   </h4>
+                   <p className="text-[13px] font-semibold text-slate-700 leading-relaxed">
+                     {viewingRecord.notes || 'No global coaching notes available.'}
+                   </p>
+                </div>
+              </div>
+
+              {/* Sample Table */}
               <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
                  <table className="w-full text-left">
                     <thead>
@@ -396,8 +498,11 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
                          </tr>
                        )) : (
                          <tr>
-                            <td colSpan={3} className="px-10 py-10 text-center">
-                               <span className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No Sample Data</span>
+                            <td colSpan={3} className="px-10 py-20 text-center">
+                               <div className="flex flex-col items-center gap-3 opacity-30">
+                                 <i className="bi bi-journal-x text-[40px]"></i>
+                                 <span className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No Sample Data Recorded</span>
+                               </div>
                             </td>
                          </tr>
                        )}
@@ -405,6 +510,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ user, records, onEdit, onDele
                  </table>
               </div>
             </div>
+
             <div className="p-8 bg-white border-t border-slate-50 flex justify-end">
                <button 
                 onClick={() => setViewingRecord(null)}

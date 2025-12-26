@@ -25,9 +25,9 @@ let pool;
 async function initDB() {
   try {
     pool = await mysql.createPool(dbConfig);
-    console.log('Connected to MySQL Database successfully');
+    console.log('--- SYSTEM STATUS: Connected to MySQL Database ---');
     
-    // Create tables if they don't exist
+    // Create Users Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(50) PRIMARY KEY,
@@ -41,18 +41,7 @@ async function initDB() {
       )
     `);
 
-    // Check for existing columns to support schema evolution
-    const [columns] = await pool.query('SHOW COLUMNS FROM users');
-    const hasEmail = columns.some(c => c.Field === 'email');
-    const hasPassword = columns.some(c => c.Field === 'password');
-    const hasPhone = columns.some(c => c.Field === 'phoneNumber');
-    const hasGender = columns.some(c => c.Field === 'gender');
-    
-    if (!hasEmail) await pool.query('ALTER TABLE users ADD COLUMN email VARCHAR(150)');
-    if (!hasPassword) await pool.query('ALTER TABLE users ADD COLUMN password VARCHAR(100) DEFAULT "123456"');
-    if (!hasPhone) await pool.query('ALTER TABLE users ADD COLUMN phoneNumber VARCHAR(20)');
-    if (!hasGender) await pool.query('ALTER TABLE users ADD COLUMN gender VARCHAR(20)');
-
+    // Create Records Table with full schema support
     await pool.query(`
       CREATE TABLE IF NOT EXISTS records (
         id VARCHAR(50) PRIMARY KEY,
@@ -69,12 +58,17 @@ async function initDB() {
         notes TEXT,
         noWork BOOLEAN,
         manualQC BOOLEAN,
+        manualErrors JSON,
+        manualFeedback TEXT,
         samples JSON,
+        samplingRange JSON,
         createdAt BIGINT
       )
     `);
+
+    console.log('--- SCHEMA STATUS: Database tables verified and ready ---');
   } catch (err) {
-    console.error('Database initialization failed:', err);
+    console.error('CRITICAL ERROR: Database initialization failed:', err.message);
   }
 }
 
@@ -85,38 +79,23 @@ async function sendQCReportEmail(record) {
     const agentEmail = users[0]?.email || 'agent@gmail.com';
     const score = record.isRework ? record.reworkScore : record.score;
 
-    console.log(`
-------------------------------------------------------------
-[SIMULATED EMAIL SYSTEM]
-SENDER: Portal Owner (System)
-RECEIVER: ${record.agentName}
-DESTINATION: ${agentEmail}
-SUBJECT: Your QC Evaluation Report - ${record.date}
-
-MESSAGE CONTENT:
-Dear ${record.agentName},
-Your QC evaluation report for QC Evaluation on ${record.date} is ready.
-
-AVERAGE QC SCORE: ${score}%
-TOTAL RECORDS: 1
-
-SCORE DETAILS:
-Date: ${record.date} | Slot: ${record.timeSlot} | Project: ${record.projectName} | Score: ${score}%
-
-QC Checker: ${record.qcCheckerName}
-
-Note: This is an automated report sent from the Quality Evaluator Portal.
-------------------------------------------------------------
-    `);
+    console.log(`[EMAIL DISPATCH] Sent to ${agentEmail} | Score: ${score}%`);
     return true;
   } catch (e) {
-    console.error('Email simulation failed:', e);
+    console.error('[EMAIL ERROR] Simulation failed:', e);
     return false;
   }
 }
 
-// Health Check
-app.get('/api/health', (req, res) => res.sendStatus(200));
+// Health Check API
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'connected', provider: 'MySQL' });
+  } catch (e) {
+    res.status(500).json({ status: 'disconnected', provider: 'LocalStorage Fallback' });
+  }
+});
 
 // --- USER ROUTES ---
 
@@ -159,7 +138,9 @@ app.get('/api/records', async (req, res) => {
     const formatted = rows.map(r => ({
       ...r,
       date: r.date.toISOString().split('T')[0],
-      samples: JSON.parse(r.samples || '[]')
+      samples: JSON.parse(r.samples || '[]'),
+      manualErrors: JSON.parse(r.manualErrors || '[]'),
+      samplingRange: JSON.parse(r.samplingRange || '{}')
     }));
     res.json(formatted);
   } catch (err) {
@@ -172,21 +153,21 @@ app.post('/api/records', async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO records 
-      (id, date, timeSlot, tlName, agentName, qcCheckerName, projectName, taskName, score, reworkScore, isRework, notes, noWork, manualQC, samples, createdAt) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, date, timeSlot, tlName, agentName, qcCheckerName, projectName, taskName, score, reworkScore, isRework, notes, noWork, manualQC, manualErrors, manualFeedback, samples, samplingRange, createdAt) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
-      date=?, timeSlot=?, tlName=?, agentName=?, qcCheckerName=?, projectName=?, taskName=?, score=?, reworkScore=?, isRework=?, notes=?, noWork=?, manualQC=?, samples=?`,
+      date=?, timeSlot=?, tlName=?, agentName=?, qcCheckerName=?, projectName=?, taskName=?, score=?, reworkScore=?, isRework=?, notes=?, noWork=?, manualQC=?, manualErrors=?, manualFeedback=?, samples=?, samplingRange=?`,
       [
-        r.id, r.date, r.timeSlot, r.tlName, r.agentName, r.qcCheckerName, r.projectName, r.taskName, r.score, r.reworkScore, r.isRework, r.notes, r.noWork, r.manualQC, JSON.stringify(r.samples), r.createdAt,
-        r.date, r.timeSlot, r.tlName, r.agentName, r.qcCheckerName, r.projectName, r.taskName, r.score, r.reworkScore, r.isRework, r.notes, r.noWork, r.manualQC, JSON.stringify(r.samples)
+        r.id, r.date, r.timeSlot, r.tlName, r.agentName, r.qcCheckerName, r.projectName, r.taskName, r.score, r.reworkScore, r.isRework, r.notes, r.noWork, r.manualQC, JSON.stringify(r.manualErrors || []), r.manualFeedback, JSON.stringify(r.samples || []), JSON.stringify(r.samplingRange || {}), r.createdAt,
+        r.date, r.timeSlot, r.tlName, r.agentName, r.qcCheckerName, r.projectName, r.taskName, r.score, r.reworkScore, r.isRework, r.notes, r.noWork, r.manualQC, JSON.stringify(r.manualErrors || []), r.manualFeedback, JSON.stringify(r.samples || []), JSON.stringify(r.samplingRange || {})
       ]
     );
     
-    // Send email notification to agent
     await sendQCReportEmail(r);
-    
+    console.log(`[STORAGE SUCCESS] Audit Saved: ${r.id} for Agent: ${r.agentName}`);
     res.sendStatus(200);
   } catch (err) {
+    console.error('[STORAGE ERROR] Failed to save record:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

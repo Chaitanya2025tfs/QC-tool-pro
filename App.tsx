@@ -17,10 +17,16 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<QCRecord | undefined>();
   const [showSuccessReport, setShowSuccessReport] = useState<QCRecord | null>(null);
+  const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
 
   const loadData = async () => {
     setLoading(true);
     try {
+      // Check connectivity
+      const isConnected = await storage.checkBackend();
+      setIsBackendConnected(isConnected);
+
+      // Load records
       const fetchedRecords = await storage.getRecords();
       setRecords(fetchedRecords);
     } finally {
@@ -30,6 +36,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    // Poll for connectivity status every 30 seconds
+    const interval = setInterval(async () => {
+      const isConnected = await storage.checkBackend();
+      setIsBackendConnected(isConnected);
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogin = (loggedUser: User) => {
@@ -79,6 +91,7 @@ const App: React.FC = () => {
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         onLogout={handleLogout} 
+        isBackendConnected={isBackendConnected}
       />
       
       <main className="ml-[15%] w-[85%] min-h-screen transition-all relative py-4 px-6 overflow-x-hidden">

@@ -40,9 +40,8 @@ const KPICard = ({ title, value, color, icon }: { title: string, value: string |
   );
 };
 
-// Fix: Make children optional to satisfy JSX type checker
 const ChartBox = ({ title, icon, children }: { title: string, icon: string, children?: React.ReactNode }) => (
-  <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.02)] flex flex-col h-[340px]">
+  <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.02)] flex flex-col h-[380px]">
     <div className="flex items-center gap-2 mb-6">
       <i className={`bi ${icon} text-[#4f46e5] text-[16px]`}></i>
       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a2138]">{title}</h3>
@@ -58,7 +57,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
 
-  // Manual display states for MM/DD/YYYY inputs
   const toMMDDYYYY = (iso: string) => {
     if (!iso) return '';
     const [y, m, d] = iso.split('-');
@@ -118,13 +116,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
     })).sort((a, b) => b.date.localeCompare(a.date));
   }, [filtered]);
 
-  const pieData = useMemo(() => {
-    return PROJECTS.map(p => {
-      const submissionsOnProject = filtered.filter(r => r.projectName === p).length;
-      return { name: p, value: submissionsOnProject };
-    }).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
-  }, [filtered]);
-
   const trendData = useMemo(() => {
     if (filtered.length === 0) return [];
     const dates = Array.from(new Set(filtered.map(r => r.date))).sort().slice(-7);
@@ -144,18 +135,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
   const barData = useMemo(() => {
     return PROJECTS.map(p => {
       const pRecs = filtered.filter(r => r.projectName === p);
-      const reg = pRecs.filter(r => !r.isRework && !r.noWork);
-      const rew = pRecs.filter(r => r.isRework);
-      return {
-        name: p,
-        reg: reg.length ? Math.round(reg.reduce((a,b)=>a+b.score,0)/reg.length) : 0,
-        rew: rew.length ? Math.round(rew.reduce((a,b)=>a+(b.reworkScore||b.score),0)/rew.length) : 0
-      };
+      const entry: any = { name: p };
+      
+      TIME_SLOTS.forEach(slot => {
+        const slotReg = pRecs.filter(r => r.timeSlot === slot && !r.isRework && !r.noWork);
+        const slotRew = pRecs.filter(r => r.timeSlot === slot && r.isRework);
+        
+        entry[`${slot}_reg`] = slotReg.length ? Math.round(slotReg.reduce((a,b)=>a+b.score,0)/slotReg.length) : 0;
+        entry[`${slot}_rew`] = slotRew.length ? Math.round(slotRew.reduce((a,b)=>a+(b.reworkScore||b.score),0)/slotRew.length) : 0;
+      });
+      
+      return entry;
     });
   }, [filtered]);
 
+  const pieData = useMemo(() => {
+    return PROJECTS.map(p => {
+      const submissionsOnProject = filtered.filter(r => r.projectName === p).length;
+      return { name: p, value: submissionsOnProject };
+    }).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+  }, [filtered]);
+
   const handleManualDateInput = (val: string, setter: (v: string) => void, syncState: (v: string) => void) => {
-    // Basic auto-slashing logic for MM/DD/YYYY
     let cleaned = val.replace(/\D/g, '').slice(0, 8);
     if (cleaned.length >= 5) {
       cleaned = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4)}`;
@@ -163,8 +164,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
       cleaned = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
     }
     setter(cleaned);
-
-    // If fully entered (10 chars), try to sync to ISO state
     if (cleaned.length === 10) {
       const [m, d, y] = cleaned.split('/');
       const iso = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
@@ -205,12 +204,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
             </div>
           )}
           
-          {/* Evaluation Range Container - MM/DD/YYYY with Manual and Picker Support */}
           <div className="flex flex-col gap-1">
             <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">EVALUATION RANGE</span>
             <div className="flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-100 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)]">
-              
-              {/* Start Date Area */}
               <div className="flex items-center gap-2 group relative">
                 <input 
                   type="text"
@@ -229,12 +225,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
                   />
                 </div>
               </div>
-              
               <div className="flex items-center justify-center px-1">
                 <span className="text-slate-200 font-light select-none text-[16px]">→</span>
               </div>
-              
-              {/* End Date Area */}
               <div className="flex items-center gap-2 group relative">
                 <input 
                   type="text"
@@ -253,7 +246,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
                   />
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -317,13 +309,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
         <ChartBox title="PROJECT QC AVG PER SLOT" icon="bi-bar-chart-fill">
           {barData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical" margin={{ bottom: 20 }}>
+              <BarChart data={barData} layout="vertical" margin={{ left: 30, right: 30, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <Tooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', fontSize: '11px' }} />
                 <Legend verticalAlign="bottom" align="center" iconType="rect" wrapperStyle={{ fontSize: '9px', paddingTop: '20px' }} />
-                <Bar dataKey="reg" name="Regular" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
+                <Bar dataKey="12 PM_reg" name="12 PM" fill={COLORS.slots['12 PM']} radius={[0, 4, 4, 0]} barSize={12} />
+                <Bar dataKey="4 PM_reg" name="4 PM" fill={COLORS.slots['4 PM']} radius={[0, 4, 4, 0]} barSize={12} />
+                <Bar dataKey="6 PM_reg" name="6 PM" fill={COLORS.slots['6 PM']} radius={[0, 4, 4, 0]} barSize={12} />
               </BarChart>
             </ResponsiveContainer>
           ) : <EmptyState />}
@@ -332,13 +326,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, records }) => {
         <ChartBox title="REWORK PERFORMANCE PER SLOT" icon="bi-arrow-repeat">
           {barData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical" margin={{ bottom: 20 }}>
+              <BarChart data={barData} layout="vertical" margin={{ left: 30, right: 30, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} fontSize={9} stroke="#94a3b8" />
                 <Tooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', fontSize: '11px' }} />
                 <Legend verticalAlign="bottom" align="center" iconType="rect" wrapperStyle={{ fontSize: '9px', paddingTop: '20px' }} />
-                <Bar dataKey="rew" name="Rework" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
+                <Bar dataKey="12 PM_rew" name="12 PM" fill={COLORS.slots['12 PM']} radius={[0, 4, 4, 0]} barSize={12} />
+                <Bar dataKey="4 PM_rew" name="4 PM" fill={COLORS.slots['4 PM']} radius={[0, 4, 4, 0]} barSize={12} />
+                <Bar dataKey="6 PM_rew" name="6 PM" fill={COLORS.slots['6 PM']} radius={[0, 4, 4, 0]} barSize={12} />
               </BarChart>
             </ResponsiveContainer>
           ) : <EmptyState />}

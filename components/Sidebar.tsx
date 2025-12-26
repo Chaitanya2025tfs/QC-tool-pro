@@ -7,9 +7,10 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onLogout: () => void;
+  isBackendConnected?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogout, isBackendConnected = false }) => {
   const tabs = [
     { id: 'dashboard', icon: 'bi-speedometer2', label: 'Dashboard', roles: ['ADMIN', 'MANAGER', 'QC', 'AGENT'] },
     { id: 'qc-form', icon: 'bi-file-earmark-text', label: 'Qc form', roles: ['ADMIN', 'MANAGER', 'QC'] },
@@ -36,9 +37,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
              Solutions Simplified
            </span>
 
-           {/* User Identity Section - Tighter margins to remove gap */}
+           {/* User Identity Section */}
            <div className="mt-6 flex flex-col items-center gap-3 py-5 w-full rounded-2xl bg-white/5 border border-white/5 shadow-inner mb-4">
-              {/* Profile Icon */}
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-lg border border-white/10 shrink-0">
                 <svg width="42" height="42" viewBox="0 0 100 100" className="text-black">
                   <circle cx="50" cy="50" r="48" fill="white" />
@@ -48,8 +48,6 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
                   <circle cx="50" cy="74" r="2.5" fill="white" />
                 </svg>
               </div>
-              
-              {/* Name & Role Rows */}
               <div className="flex flex-col items-center text-center px-4 w-full overflow-hidden">
                 <span className="text-[13px] font-black text-white leading-tight mb-1 truncate w-full">
                   {user.name}
@@ -84,7 +82,21 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
         ))}
       </nav>
 
-      <div className="p-4 mt-auto border-t border-white/5">
+      <div className="p-4 mt-auto border-t border-white/5 space-y-4">
+        {/* System Status Indicator */}
+        <div className="flex flex-col gap-2 px-2 py-3 rounded-xl bg-black/20 border border-white/5">
+           <div className="flex items-center justify-between">
+              <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Storage Status</span>
+              <div className={`w-2 h-2 rounded-full ${isBackendConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'} animate-pulse`}></div>
+           </div>
+           <div className="flex items-center gap-2">
+              <i className={`bi ${isBackendConnected ? 'bi-database-check text-emerald-400' : 'bi-hdd-fill text-rose-400'} text-[12px]`}></i>
+              <span className={`text-[9px] font-bold uppercase tracking-widest ${isBackendConnected ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isBackendConnected ? 'MySQL Active' : 'Offline Mode'}
+              </span>
+           </div>
+        </div>
+
         <button
           onClick={onLogout}
           className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-rose-500/10 transition-all group"

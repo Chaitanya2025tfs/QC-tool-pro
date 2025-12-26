@@ -4,16 +4,15 @@ import { QCRecord, User } from '../types';
 // API Configuration
 const API_BASE_URL = 'http://localhost:3000/api';
 
-/**
- * World-class API Service
- * Handles communication with the backend MySQL database.
- * Includes a localStorage fallback for local testing.
- */
 export const storage = {
   // Check if backend is available
   async checkBackend(): Promise<boolean> {
     try {
-      const resp = await fetch(`${API_BASE_URL}/health`, { signal: AbortSignal.timeout(2000) });
+      const resp = await fetch(`${API_BASE_URL}/health`, { 
+        method: 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(1500) 
+      });
       return resp.ok;
     } catch {
       return false;
@@ -42,8 +41,10 @@ export const storage = {
       });
       if (response.ok) return;
     } catch (e) {
-      console.warn('Backend not reached, saving to localStorage');
+      console.warn('Backend not reached, saving to localStorage fallback');
     }
+    
+    // LocalStorage Fallback Logic
     const records = await storage.getRecords();
     const index = records.findIndex(r => r.id === record.id);
     if (index > -1) {
