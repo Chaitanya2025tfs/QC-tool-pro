@@ -40,7 +40,8 @@ const KPICard = ({ title, value, color, icon }: { title: string, value: string |
   );
 };
 
-const ChartBox = ({ title, icon, children }: { title: string, icon: string, children: React.ReactNode }) => (
+// Fix: Make children optional to satisfy JSX type checker
+const ChartBox = ({ title, icon, children }: { title: string, icon: string, children?: React.ReactNode }) => (
   <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.02)] flex flex-col h-[340px]">
     <div className="flex items-center gap-2 mb-6">
       <i className={`bi ${icon} text-[#4f46e5] text-[16px]`}></i>

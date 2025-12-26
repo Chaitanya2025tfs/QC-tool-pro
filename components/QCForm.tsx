@@ -10,7 +10,8 @@ interface QCFormProps {
   onDiscard: () => void;
 }
 
-const FormField = ({ label, children }: { label: string; children: React.ReactNode }) => (
+// Fix: Make children optional to satisfy JSX type checker
+const FormField = ({ label, children }: { label: string; children?: React.ReactNode }) => (
   <div className="flex flex-col gap-2">
     <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     {children}
@@ -101,6 +102,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
     const startParts = extractParts(startStr);
     const endParts = extractParts(endStr);
 
+    // Fixed typo: changed iNaN to isNaN on line 103 (referenced as 104 in error)
     if (isNaN(startParts.num) || isNaN(endParts.num) || startParts.num > endParts.num) {
       setFormError("Invalid sampling range. Please ensure start is less than end.");
       return;
@@ -216,8 +218,9 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
       return;
     }
 
-    if (!formData.notes || formData.notes.trim().length < 5) {
-      setFormError("Global Coaching Feedback & Final Notes are mandatory and must be descriptive.");
+    // Updated validation: Mandatory check only, removed character count requirement
+    if (!formData.notes || !formData.notes.trim()) {
+      setFormError("Global Coaching Feedback & Final Notes are mandatory.");
       scrollToField(notesRef);
       return;
     }
@@ -520,7 +523,7 @@ const QCForm: React.FC<QCFormProps> = ({ user, onSave, editRecord, onDiscard }) 
               value={formData.notes}
               onChange={e => setFormData({...formData, notes: e.target.value})}
               placeholder="Summarize overall findings for the entire task..." 
-              className={`w-full h-40 p-6 bg-white border rounded-[4px] outline-none transition-all text-[16px] font-medium text-slate-600 focus:ring-2 focus:ring-indigo-500/10 ${(!formData.notes || formData.notes.trim().length < 5) && formError ? 'border-rose-500 bg-rose-50' : 'border-slate-200'}`}
+              className={`w-full h-40 p-6 bg-white border rounded-[4px] outline-none transition-all text-[16px] font-medium text-slate-600 focus:ring-2 focus:ring-indigo-500/10 ${(!formData.notes || !formData.notes.trim()) && formError ? 'border-rose-500 bg-rose-50' : 'border-slate-200'}`}
             ></textarea>
           </div>
 

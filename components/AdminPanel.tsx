@@ -35,7 +35,8 @@ const AdminPanel: React.FC = () => {
     isSending: false
   });
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Fix: Avoid NodeJS namespace in browser environment
+  const timerRef = useRef<any>(null);
 
   const [newUser, setNewUser] = useState<Partial<User>>({
     name: '',
