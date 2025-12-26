@@ -9,15 +9,36 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+
+// Enhanced CORS for production
+const allowedOrigins = [
+  'http://localhost:5173', // Vite default
+  'http://localhost:3000',
+  process.env.FRONTEND_URL // Your live frontend URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  }
+}));
+
 app.use(express.json({ limit: '50mb' }));
 
-// Database configuration - Update these with your real MySQL credentials
+// Database configuration using environment variables
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'qc_evaluator'
+  database: process.env.DB_NAME || 'qc_evaluator',
+  port: process.env.DB_PORT || 3306,
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
 };
 
 let pool;
@@ -25,7 +46,7 @@ let pool;
 async function initDB() {
   try {
     pool = await mysql.createPool(dbConfig);
-    console.log('--- SYSTEM STATUS: Connected to MySQL Database ---');
+    console.log(`--- SYSTEM STATUS: Connected to MySQL Database at ${dbConfig.host} ---`);
     
     // Create Users Table
     await pool.query(`
@@ -41,7 +62,7 @@ async function initDB() {
       )
     `);
 
-    // Create Records Table with full schema support
+    // Create Records Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS records (
         id VARCHAR(50) PRIMARY KEY,
@@ -69,21 +90,7 @@ async function initDB() {
     console.log('--- SCHEMA STATUS: Database tables verified and ready ---');
   } catch (err) {
     console.error('CRITICAL ERROR: Database initialization failed:', err.message);
-  }
-}
-
-// Simulated Email Sender
-async function sendQCReportEmail(record) {
-  try {
-    const [users] = await pool.query('SELECT email FROM users WHERE name = ?', [record.agentName]);
-    const agentEmail = users[0]?.email || 'agent@gmail.com';
-    const score = record.isRework ? record.reworkScore : record.score;
-
-    console.log(`[EMAIL DISPATCH] Sent to ${agentEmail} | Score: ${score}%`);
-    return true;
-  } catch (e) {
-    console.error('[EMAIL ERROR] Simulation failed:', e);
-    return false;
+    console.log('--- FAILOVER: System will continue but database features may be unavailable ---');
   }
 }
 
@@ -91,14 +98,13 @@ async function sendQCReportEmail(record) {
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
-    res.json({ status: 'connected', provider: 'MySQL' });
+    res.json({ status: 'connected', provider: 'MySQL', environment: process.env.NODE_ENV || 'development' });
   } catch (e) {
-    res.status(500).json({ status: 'disconnected', provider: 'LocalStorage Fallback' });
+    res.status(500).json({ status: 'disconnected', provider: 'Fallback Mode' });
   }
 });
 
 // --- USER ROUTES ---
-
 app.get('/api/users', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM users');
@@ -131,16 +137,15 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 // --- RECORD ROUTES ---
-
 app.get('/api/records', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM records ORDER BY createdAt DESC');
     const formatted = rows.map(r => ({
       ...r,
-      date: r.date.toISOString().split('T')[0],
-      samples: JSON.parse(r.samples || '[]'),
-      manualErrors: JSON.parse(r.manualErrors || '[]'),
-      samplingRange: JSON.parse(r.samplingRange || '{}')
+      date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : r.date,
+      samples: typeof r.samples === 'string' ? JSON.parse(r.samples) : (r.samples || []),
+      manualErrors: typeof r.manualErrors === 'string' ? JSON.parse(r.manualErrors) : (r.manualErrors || []),
+      samplingRange: typeof r.samplingRange === 'string' ? JSON.parse(r.samplingRange) : (r.samplingRange || {})
     }));
     res.json(formatted);
   } catch (err) {
@@ -162,9 +167,6 @@ app.post('/api/records', async (req, res) => {
         r.date, r.timeSlot, r.tlName, r.agentName, r.qcCheckerName, r.projectName, r.taskName, r.score, r.reworkScore, r.isRework, r.notes, r.noWork, r.manualQC, JSON.stringify(r.manualErrors || []), r.manualFeedback, JSON.stringify(r.samples || []), JSON.stringify(r.samplingRange || {})
       ]
     );
-    
-    await sendQCReportEmail(r);
-    console.log(`[STORAGE SUCCESS] Audit Saved: ${r.id} for Agent: ${r.agentName}`);
     res.sendStatus(200);
   } catch (err) {
     console.error('[STORAGE ERROR] Failed to save record:', err.message);
@@ -183,5 +185,8 @@ app.delete('/api/records/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {
-  app.listen(PORT, () => console.log(`QC Backend running on port ${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`QC Backend running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
 });

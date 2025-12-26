@@ -1,8 +1,8 @@
 
 import { QCRecord, User } from '../types';
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:3000/api';
+// API Configuration - Uses environment variable if available, otherwise defaults to localhost
+const API_BASE_URL = process.env.API_URL || 'http://localhost:3000/api';
 
 export const storage = {
   // Check if backend is available
@@ -11,7 +11,7 @@ export const storage = {
       const resp = await fetch(`${API_BASE_URL}/health`, { 
         method: 'GET',
         cache: 'no-store',
-        signal: AbortSignal.timeout(1500) 
+        signal: AbortSignal.timeout(2000) 
       });
       return resp.ok;
     } catch {
