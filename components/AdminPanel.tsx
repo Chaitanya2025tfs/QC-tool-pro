@@ -491,7 +491,7 @@ const AdminPanel: React.FC = () => {
       {/* Verification Modal System for Password/Phone/Add */}
       {verifyModal.isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1E2A56]/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white w-full max-sm rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 p-10 relative">
+          <div className="bg-white w-[30%] min-w-[350px] rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 p-10 relative">
             
             <button 
               onClick={closeVerification} 

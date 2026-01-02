@@ -12,6 +12,12 @@ export interface User {
   gender?: string;
 }
 
+export interface ProjectTarget {
+  id: string;
+  name: string;
+  defaultTarget: number;
+}
+
 export interface QCError {
   category: string;
   label: string;
@@ -54,6 +60,26 @@ export interface QCRecord {
     end: string;
   };
   createdAt: number;
+}
+
+export interface ProductionLog {
+  id: string;
+  agentName: string;
+  date: string;
+  projectName: string;
+  target: number;
+  actual: number;
+  loggedAt: string; // ISO time string
+  createdAt: number;
+}
+
+export interface DailyProductionSummary {
+  date: string;
+  logsCount: number;
+  totalTarget: number;
+  totalActual: number;
+  billableHours: number;
+  accuracy: number;
 }
 
 export interface PerformanceStats {

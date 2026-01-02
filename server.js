@@ -95,23 +95,42 @@ async function initDB() {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS production_logs (
+        id VARCHAR(50) PRIMARY KEY,
+        agentName VARCHAR(100) NOT NULL,
+        date DATE NOT NULL,
+        projectName VARCHAR(100) NOT NULL,
+        target INT DEFAULT 0,
+        actual INT DEFAULT 0,
+        loggedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        createdAt BIGINT
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        defaultTarget INT DEFAULT 0
+      )
+    `);
+
     console.log('--- SYSTEM: Database tables verified ---');
   } catch (err) {
     console.error('CRITICAL DATABASE ERROR:', err.message);
-    // Do not exit process, allow frontend to fall back to LocalStorage
   }
 }
 
 // --- API ENDPOINTS ---
 
-// Live Health Check
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
     res.json({ 
       status: 'online', 
       db: 'connected', 
-      version: '2.0.0',
+      version: '2.2.0',
       timestamp: new Date().toISOString()
     });
   } catch (e) {
@@ -119,7 +138,31 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Users Management
+// Projects
+app.get('/api/projects', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM projects');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch projects' });
+  }
+});
+
+app.post('/api/projects', async (req, res) => {
+  const { id, name, defaultTarget } = req.body;
+  try {
+    await pool.query(
+      `INSERT INTO projects (id, name, defaultTarget) VALUES (?, ?, ?) 
+       ON DUPLICATE KEY UPDATE name=?, defaultTarget=?`,
+      [id, name, defaultTarget, name, defaultTarget]
+    );
+    res.json({ message: 'Project saved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Users
 app.get('/api/users', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM users');
@@ -154,7 +197,7 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Records Management
+// Records
 app.get('/api/records', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM records ORDER BY createdAt DESC');
@@ -194,6 +237,49 @@ app.post('/api/records', async (req, res) => {
 app.delete('/api/records/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM records WHERE id = ?', [req.params.id]);
+    res.sendStatus(204);
+  } catch (err) {
+    res.status(500).json({ error: 'Delete failed' });
+  }
+});
+
+// Production Logs
+app.get('/api/production-logs', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM production_logs ORDER BY createdAt DESC');
+    const formatted = rows.map(r => ({
+      ...r,
+      date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : r.date
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch logs' });
+  }
+});
+
+app.post('/api/production-logs', async (req, res) => {
+  const l = req.body;
+  try {
+    await pool.query(
+      `INSERT INTO production_logs 
+      (id, agentName, date, projectName, target, actual, loggedAt, createdAt) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE 
+      agentName=?, date=?, projectName=?, target=?, actual=?, loggedAt=?`,
+      [
+        l.id, l.agentName, l.date, l.projectName, l.target, l.actual, l.loggedAt, l.createdAt,
+        l.agentName, l.date, l.projectName, l.target, l.actual, l.loggedAt
+      ]
+    );
+    res.json({ message: 'Log saved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/production-logs/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM production_logs WHERE id = ?', [req.params.id]);
     res.sendStatus(204);
   } catch (err) {
     res.status(500).json({ error: 'Delete failed' });

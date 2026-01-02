@@ -7,6 +7,7 @@ import ReportTable from './components/ReportTable';
 import AdminPanel from './components/AdminPanel';
 import Login from './components/Login';
 import SuccessReport from './components/SuccessReport';
+import ProductionTracker from './components/ProductionTracker';
 import { User, QCRecord } from './types';
 import { storage } from './services/storage';
 
@@ -130,6 +131,7 @@ const App: React.FC = () => {
               onDelete={deleteRecord} 
             />
           )}
+          {activeTab === 'production-tracker' && <ProductionTracker user={user} records={records} />}
           {activeTab === 'admin-panel' && user.role === 'ADMIN' && <AdminPanel />}
         </div>
 

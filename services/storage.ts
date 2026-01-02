@@ -1,5 +1,5 @@
 
-import { QCRecord, User } from '../types';
+import { QCRecord, User, ProductionLog, ProjectTarget } from '../types';
 
 // API Configuration - Uses environment variable if available, otherwise defaults to localhost
 const API_BASE_URL = process.env.API_URL || 'http://localhost:3000/api';
@@ -17,6 +17,40 @@ export const storage = {
     } catch {
       return false;
     }
+  },
+
+  // --- PROJECTS & TARGETS ---
+  getProjects: async (): Promise<ProjectTarget[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/projects`);
+      if (response.ok) return await response.json();
+    } catch (e) {
+      console.warn('Backend not reached, using defaults');
+    }
+    const data = localStorage.getItem('qc_projects');
+    return data ? JSON.parse(data) : [
+      { id: '1', name: 'Moveeasy', defaultTarget: 50 },
+      { id: '2', name: 'Mfund', defaultTarget: 40 },
+      { id: '3', name: 'Altrum', defaultTarget: 30 },
+    ];
+  },
+
+  saveProject: async (project: ProjectTarget): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(project)
+      });
+      if (response.ok) return;
+    } catch (e) {
+      console.warn('Backend not reached, saving locally');
+    }
+    const projects = await storage.getProjects();
+    const idx = projects.findIndex(p => p.id === project.id);
+    if (idx > -1) projects[idx] = project;
+    else projects.push(project);
+    localStorage.setItem('qc_projects', JSON.stringify(projects));
   },
 
   // --- RECORDS ---
@@ -65,6 +99,52 @@ export const storage = {
     const records = await storage.getRecords();
     const filtered = records.filter(r => r.id !== id);
     localStorage.setItem('qc_eval_records', JSON.stringify(filtered));
+  },
+
+  // --- PRODUCTION LOGS ---
+
+  getProductionLogs: async (): Promise<ProductionLog[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/production-logs`);
+      if (response.ok) return await response.json();
+    } catch (e) {
+      console.warn('Backend not reached, using localStorage fallback');
+    }
+    const data = localStorage.getItem('qc_production_logs');
+    return data ? JSON.parse(data) : [];
+  },
+
+  saveProductionLog: async (log: ProductionLog): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/production-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(log)
+      });
+      if (response.ok) return;
+    } catch (e) {
+      console.warn('Backend not reached, saving to localStorage fallback');
+    }
+    const logs = await storage.getProductionLogs();
+    const index = logs.findIndex(l => l.id === log.id);
+    if (index > -1) {
+      logs[index] = log;
+    } else {
+      logs.push(log);
+    }
+    localStorage.setItem('qc_production_logs', JSON.stringify(logs));
+  },
+
+  deleteProductionLog: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/production-logs/${id}`, { method: 'DELETE' });
+      if (response.ok) return;
+    } catch (e) {
+      console.warn('Backend not reached, deleting from localStorage');
+    }
+    const logs = await storage.getProductionLogs();
+    const filtered = logs.filter(l => l.id !== id);
+    localStorage.setItem('qc_production_logs', JSON.stringify(filtered));
   },
 
   // --- USERS ---
