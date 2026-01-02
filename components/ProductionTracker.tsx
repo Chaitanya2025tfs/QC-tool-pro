@@ -61,20 +61,25 @@ const ProductionTracker: React.FC<ProductionTrackerProps> = ({ user, records }) 
 
   const fetchData = async () => {
     setLoading(true);
-    const [allLogs, users, fetchedProjects] = await Promise.all([
-      storage.getProductionLogs(),
-      storage.getUsers(),
-      storage.getProjects()
-    ]);
-    
-    // Include both AGENT and QC roles for managers to track
-    setAllUsers(users.filter(u => u.role === 'AGENT' || u.role === 'QC'));
-    setProjects(fetchedProjects);
-    
-    // Filter logs by the viewed agent
-    const filteredLogs = allLogs.filter(l => l.agentName === viewedAgentName);
-    setLogs(filteredLogs);
-    setLoading(false);
+    try {
+      const [allLogs, users, fetchedProjects] = await Promise.all([
+        storage.getProductionLogs(),
+        storage.getUsers(),
+        storage.getProjects()
+      ]);
+      
+      // Include both AGENT and QC roles for managers to track
+      setAllUsers(users.filter(u => u.role === 'AGENT' || u.role === 'QC'));
+      setProjects(fetchedProjects);
+      
+      // Filter logs by the viewed agent
+      const filteredLogs = allLogs.filter(l => l.agentName === viewedAgentName);
+      setLogs(filteredLogs);
+    } catch (error) {
+      console.error("Error fetching production data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -243,6 +248,36 @@ const ProductionTracker: React.FC<ProductionTrackerProps> = ({ user, records }) 
 
     return result;
   }, [logs, records, viewedAgentName, filterStartDate, filterEndDate]);
+
+  // Calculation Summary logic for the entire selected range
+  const overallCalculations = useMemo(() => {
+    if (summaries.length === 0) return null;
+
+    const totalLogsCount = summaries.reduce((acc, curr) => acc + curr.logsCount, 0);
+    const totalBillable = summaries.reduce((acc, curr) => acc + curr.billableHours, 0);
+    const totalRequired = summaries.length * 9;
+
+    // Aggregate QC scores across all days in range for this agent
+    const filteredRecords = records.filter(r => r.agentName === viewedAgentName && r.date >= filterStartDate && r.date <= filterEndDate);
+    const regularScores = filteredRecords.filter(r => !r.isRework && !r.noWork).map(r => r.score);
+    const reworkScores = filteredRecords.filter(r => r.isRework).map(r => r.reworkScore || r.score);
+
+    const overallAvgReg = regularScores.length > 0 
+      ? (regularScores.reduce((a, b) => a + b, 0) / regularScores.length).toFixed(1) + '%'
+      : '-';
+    
+    const overallAvgRew = reworkScores.length > 0 
+      ? (reworkScores.reduce((a, b) => a + b, 0) / reworkScores.length).toFixed(1) + '%'
+      : '-';
+
+    return {
+      totalLogsCount,
+      overallAvgReg,
+      overallAvgRew,
+      totalBillable,
+      totalRequired
+    };
+  }, [summaries, records, viewedAgentName, filterStartDate, filterEndDate]);
 
   const displayedSummaries = useMemo(() => {
     return showAllEntries ? summaries : summaries.slice(0, 3);
@@ -452,7 +487,17 @@ const ProductionTracker: React.FC<ProductionTrackerProps> = ({ user, records }) 
            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
               <div className="px-8 py-6 bg-slate-50/50 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-center gap-6">
                  <div className="flex flex-col gap-1">
-                    <h3 className="text-[11px] font-black text-[#1E2A56] uppercase tracking-widest">DAILY PRODUCTION HISTORY</h3>
+                    <div className="flex items-center gap-3">
+                       <h3 className="text-[11px] font-black text-[#1E2A56] uppercase tracking-widest">DAILY PRODUCTION HISTORY</h3>
+                       <button 
+                         onClick={fetchData}
+                         disabled={loading}
+                         className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all active:scale-90 shadow-sm"
+                         title="Refresh Data"
+                       >
+                         <i className={`bi bi-arrow-clockwise text-[15px] ${loading ? 'animate-spin text-indigo-500' : ''}`}></i>
+                       </button>
+                    </div>
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Applied Filter: {filterStartDate} to {filterEndDate}</span>
                  </div>
                  
@@ -523,6 +568,31 @@ const ProductionTracker: React.FC<ProductionTrackerProps> = ({ user, records }) 
                         </td>
                       </tr>
                     ))}
+
+                    {/* Calculation Summary Row (Sticky-like styling at bottom) */}
+                    {overallCalculations && summaries.length > 0 && (
+                      <tr className="bg-slate-900 text-white border-t-4 border-white">
+                        <td className="px-8 py-6 text-[11px] font-black uppercase tracking-widest">Calculation Summary</td>
+                        <td className="px-4 py-6">
+                           <span className="px-4 py-1.5 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-widest">
+                             {overallCalculations.totalLogsCount} Total
+                           </span>
+                        </td>
+                        <td className="px-4 py-6 text-[15px] font-black text-emerald-400">
+                          {overallCalculations.overallAvgReg}
+                        </td>
+                        <td className="px-4 py-6 text-[15px] font-black text-rose-400">
+                          {overallCalculations.overallAvgRew}
+                        </td>
+                        <td className="px-8 py-6 text-[16px] font-black">
+                          {overallCalculations.totalBillable.toFixed(2)}
+                        </td>
+                        <td className="px-8 py-6 text-[18px] font-black text-indigo-400">
+                          {overallCalculations.totalRequired.toFixed(2)}
+                        </td>
+                      </tr>
+                    )}
+
                     {summaries.length === 0 && (
                       <tr>
                         <td colSpan={6} className="py-24 text-[11px] font-bold text-slate-300 uppercase tracking-widest opacity-40 italic">
@@ -564,27 +634,6 @@ const ProductionTracker: React.FC<ProductionTrackerProps> = ({ user, records }) 
                    >
                      <i className="bi bi-x-lg text-[18px]"></i>
                    </button>
-                </div>
-
-                <div className="bg-white/5 px-8 py-5 flex items-center justify-between border-y border-white/5">
-                   <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Daily Aggregates</span>
-                      <span className="text-[9px] font-bold text-white/40 italic">Tracking {breakdownLogs.length} unique logs</span>
-                   </div>
-                   <div className="flex gap-10">
-                      <div className="text-center">
-                         <span className="text-[9px] font-black text-white/40 uppercase block mb-1">Total Target</span>
-                         <span className="text-[22px] font-black text-white">{selectedSummary?.totalTarget}</span>
-                      </div>
-                      <div className="text-center">
-                         <span className="text-[9px] font-black text-white/40 uppercase block mb-1">Total Production Count</span>
-                         <span className="text-[22px] font-black text-emerald-400">{selectedSummary?.totalActual}</span>
-                      </div>
-                      <div className="text-center">
-                         <span className="text-[9px] font-black text-white/40 uppercase block mb-1">Billable Hours</span>
-                         <span className="text-[22px] font-black text-white">{selectedSummary?.billableHours.toFixed(2)}</span>
-                      </div>
-                   </div>
                 </div>
 
                 <div className="bg-white m-4 rounded-[2rem] overflow-hidden shadow-inner">
